@@ -16,12 +16,60 @@ evidence.
 | Audit scripts | `case-file-audit.py` proves the stations ran; `report-audit.py` proves the report is complete | The skill and agents run them automatically |
 | `report-shelf.py` | Files every finished report under `~/Downloads/QA-Reports/<PROJECT>/` with a newest-first index | Run automatically at the end of a QA run |
 
+## How the process works
+
+Every ticket goes through **six stations**. At **five gates** the agent stops, and **you** decide.
+
+```
+ S0 INTAKE ──► S1 UNDERSTAND ──► S2 DESIGN ──► S3 EXECUTE ──► S4 REPORT ──► S5 RELEASE
+                    │                │              │              │             │
+                 GATE A           GATE B         GATE C         GATE D        GATE E
+             requirements      test plan        defects       verdict &      go / no-go
+              sign-off         approval        validation      filing
+```
+
+| Station | What happens | Output (in `qa/<TICKET>/`) |
+|---|---|---|
+| **S0 Intake** | Confirms ticket, branch, environment, **the build actually deployed**, account, re-test or not. Sets the stakes tier (1–3) and the risk score | `00-intake.yml` |
+| **S1 Understand** | Turns the real acceptance criteria into numbered IF/THEN rules, finds gaps, asks precise questions | `01-requirement.md` |
+| **S2 Design** | The complete test suite for the tier, self-reviewed by a second model. Then the case-file audit | `02-plan.md` |
+| **S3 Execute** | **Pass 1:** predict from the code (write-once). **Pass 2:** run it live with screenshots. Reconcile the two | `03-pass1.md`, `04-evidence/` |
+| **S4 Report** | Full report from the template, checked by the closeout audit, delivered as `.md` + `.html` | `05-report.md` |
+| **S5 Release** | `release-gate` rolls up every ticket in a fix-version. A ticket with no report is UNKNOWN, never a pass | release report |
+
+| Gate | The question you answer |
+|---|---|
+| **A** | Are these the right business rules, and are the gaps real? |
+| **B** | Is this the right test coverage? (approve, or reject with reasons) |
+| **C** | Is each candidate really a defect, at this severity and priority? |
+| **D** | Do you sign this verdict, and what gets filed? (each Jira write approved separately) |
+| **E** | Knowing what was not tested, do we ship? |
+
+All five gates fire on **every** ticket. The tier changes how much gets *tested*, never how many
+*decisions* are yours. Every decision is logged in `06-decisions.md`.
+
+📖 **Full walkthrough, with the reason behind every rule: [docs/PROCESS.md](docs/PROCESS.md)**
+
+## Which tool when
+
+| You want to… | Use |
+|---|---|
+| QA one ticket, step by step, approving each gate as you go | `/qa-case <TICKET-KEY>` |
+| Hand a ticket to an agent that works on its own until it hits a gate | "use the qa-functional subagent for <TICKET-KEY>" |
+| Ask whether something you saw is really a bug, or review a test suite | Just ask. The `qa-functional` skill loads by itself |
+| Write, run or debug automated tests | `/qa-automate <what you need>` |
+| Decide whether a fix-version can ship | "is fix-version <X> ready to ship?" (loads `release-gate`) |
+
 ## Prerequisites
 
 1. **Claude Code** installed and signed in.
 2. **Python 3.10+** on your `PATH` as `python`. Check with `python --version`.
+   - **Windows:** if `python` opens the Microsoft Store or isn't found but `py` works, reinstall
+     Python from python.org with **"Add python.exe to PATH"** ticked. Or turn off the `python.exe`
+     alias under *Settings → Apps → Advanced app settings → App execution aliases*.
 3. **Git** installed (Claude Code uses it to download the plugin). The repo is public, so no
-   GitHub login or invitation is needed.
+   GitHub login or invitation is needed. On Windows, Git for Windows also provides Git Bash,
+   which Claude Code and the agents use to run commands.
 4. **Optional, recommended:**
    - The **Atlassian (Jira/Confluence) connector** in Claude, so the agents can read tickets
      (read-only). Without it, paste the ticket text into the chat.
@@ -116,6 +164,18 @@ switched on by the plugin, because it applies to every repo you open. To opt in,
 - Every executed case, passes included, has Steps / Expected / Actual / Evidence and a screenshot.
 - No bug carries a severity unless it was reproduced.
 - Agents **never** file tickets, comment, commit or push on their own. They draft; you decide.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `/qa-case` doesn't appear after installing | Restart Claude Code. Then run `/plugin`: SentinelQA should show as installed and enabled. If it's disabled, enable it there |
+| `/plugin marketplace add` fails | Check that `git --version` works and that you can open github.com. Then retry |
+| Audit scripts fail with "python not found" | See the Windows note under Prerequisites. `python --version` must work in a new terminal |
+| The agent says it can't read the ticket | Connect the Atlassian connector in Claude, or paste the ticket text (description **and** comments) into the chat |
+| The agent says Level 1 or 2 and can't execute tests | No browser tool is connected. Add the Playwright MCP server (see Prerequisites) and restart |
+| A report landed in `QA-Reports/_Unsorted` | The file name had no ticket key. Re-publish with `--project <NAME>` |
+| Updates don't show up | `/plugin marketplace update sentinelqa`, then restart Claude Code |
 
 ## Changing the process
 
