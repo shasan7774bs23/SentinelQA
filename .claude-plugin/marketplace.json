@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sentinelqa",
+  "description": "SentinelQA - a gated, evidence-first QA process for Claude Code.",
+  "owner": { "name": "shasan7774bs23" },
+  "plugins": [
+    {
+      "name": "sentinelqa",
+      "description": "Gated, evidence-first QA process: functional QA and test-automation agents, the qa-functional and release-gate skills, case-file and report audits, and /qa-case + /qa-automate commands. No proof, no pass.",
+      "version": "1.0.0",
+      "source": "./plugins/sentinelqa",
+      "category": "testing"
+    }
+  ]
+}

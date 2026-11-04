@@ -1,0 +1,73 @@
+# qa/<TICKET-KEY>/00-intake.yml
+# Written at S0, before requirement analysis. See references/intake-triage.md.
+
+ticket: "<KEY>"                 # e.g. ABC-581
+title: "<ticket title>"
+fix_version: "<version or 'not set'>"
+triaged_by: "<name>"
+date: "<YYYY-MM-DD>"
+
+# ─── Run context — all six confirmed before any testing. Never assumed. ───
+run_context:
+  branch: "<branch>"
+  branch_merged: <true|false>
+  deployed_site: "<environment URL>"
+  build_deployed: "<version>"
+  build_confirmed_how: "<footer / build endpoint / fingerprint — say which>"
+  test_account: "<account>"
+  test_role: "<role>"
+  run_type: "<first-pass | re-test>"
+  fix_commit: "<commit or PR — required when run_type is re-test>"
+  # Any of these unknown => ask before testing. Subagent: return
+  # BLOCKED — CLARIFICATION REQUIRED naming exactly what is missing.
+
+# ─── Stakes tier — scales rigor, never gates. All five gates fire regardless. ───
+tier: <1|2|3>
+tier_signal: "<the specific signal matched — quote it>"
+tier_escalators: []             # open ledger entry | recent defect in area | interview needed |
+                                # multi-ticket module | AI-generated implementation
+tier_reason: "<one or two sentences — why this tier and not the one below>"
+
+# ─── Risk score ───
+risk:
+  likelihood: <1-5>
+  likelihood_why: "<why>"
+  blast_radius: <1-5>
+  blast_radius_why: "<which callers / which users / what data — trace it, not the diff size>"
+  score: <likelihood * blast_radius>
+
+# ─── Capability level for this run ───
+capability_level: <1|2|3>       # 1 Analysis · 2 Investigation · 3 Execution
+level_3_tool: "<name the actual browser/API/DB tool, or 'unavailable'>"
+
+# ─── Scope ───
+scope_in: "<what this run covers>"
+scope_out: "<what it deliberately does not, and why — a boundary, not an excuse list>"
+regression_set: "<smoke + affected | + adjacent | full>"
+regression_reason: "<why>"
+
+# ─── Project layer loaded (Step 0b) ───
+project_layer:
+  claude_md: <true|false>       # false is a gap to report, not a blank to fill in
+  ledger: "<path>"
+  ledger_entries: <n>
+  existing_tests: "<what exists for this area>"
+  prior_qa: "<prior case files or reports for this area>"
+
+# ─── Where artifacts live (match the repo's existing convention) ───
+artifacts:
+  case_file: "qa/<TICKET-KEY>/"
+  plan: "<e.g. qa/<TICKET-KEY>/02-plan.md or test-plan/<TICKET-KEY>-test-plan.md>"
+  report: "<e.g. <TICKET-KEY>-QA-Report.md and .html>"
+
+# Autonomy mode per station — defaults from the tier table in references/intake-triage.md.
+# Record any deviation and who set it. The human may set any cell to HITL at any time.
+# Gates C, D and E are ALWAYS HITL regardless of tier.
+autonomy:
+  S0_intake:              { mode: "<AHOTL|OHOTL|HITL>", deviation_from_default: "", set_by: "" }
+  S1_understand_gateA:    { mode: "<...>", deviation_from_default: "", set_by: "" }
+  S2_design_gateB:        { mode: "<...>", deviation_from_default: "", set_by: "" }
+  S3_execute:             { mode: "<...>", deviation_from_default: "", set_by: "" }
+  S3_defect_val_gateC:    { mode: "HITL", deviation_from_default: "always HITL", set_by: "method" }
+  S4_verdict_gateD:       { mode: "HITL", deviation_from_default: "always HITL", set_by: "method" }
+  S5_release_gateE:       { mode: "HITL", deviation_from_default: "always HITL", set_by: "method" }
