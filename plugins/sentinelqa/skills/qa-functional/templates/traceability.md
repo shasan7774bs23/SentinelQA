@@ -72,7 +72,7 @@ gets reported as a result.
 ```markdown
 | Item | Not covered because | Owner |
 |------|--------------------|-------|
-| Judge role matrix | Account not provisioned | <who can provision> |
+| Approver role matrix | Account not provisioned | <who can provision> |
 | AC-7 | Missed in analysis | QA |
 ```
 

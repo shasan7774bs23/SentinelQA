@@ -48,8 +48,12 @@ The single most useful question, and the one most often skipped:
 - Fails **only** on the changed flow / changed build → genuine regression.
 - Fails **everywhere**, including untouched flows → pre-existing behaviour, not this ticket's defect.
   Still worth reporting, but as a separate pre-existing issue.
-- Fails on **one environment only** → environment or data difference until proven otherwise.
-  Never file an environment difference as a product defect without confirming it on a second environment.
+- Fails on **one environment only** → first ask *which build each environment runs*.
+  - Both run the **same** build → environment or data difference until proven otherwise. Never file
+    it as a product defect without confirming it on a second environment.
+  - Only the failing one runs the **new** build → that is evidence **for** a regression. Classify it
+    "suspected regression — needs root cause" and diff against the baseline build to settle it.
+    Treating it as "just the environment" has under-called real regressions before.
 
 ## Classification
 

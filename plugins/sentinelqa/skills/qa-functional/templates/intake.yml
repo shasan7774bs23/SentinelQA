@@ -21,6 +21,18 @@ run_context:
   # Any of these unknown => ask before testing. Subagent: return
   # BLOCKED — CLARIFICATION REQUIRED naming exactly what is missing.
 
+# ─── Up-front inputs — asked in ONE batched question at the start (SKILL.md, Field rules) ───
+upfront_inputs:
+  baseline_ref: "<branch / tag / prior build to compare against, or 'none — asked, not given'>"
+  env_parity_verified: "<how you confirmed the environment runs the branch>"
+  scope_countable: "<the boundary as something you can count>"
+  write_authorisation: "<what may be written on the target env; risky writes and safe variants>"
+  accounts_allowed: "<accounts / roles you may use>"
+  subagents_and_budget: "<authorised? token / time budget>"
+  depth: "<smoke | full | exhaustive with writes>"
+  cleanup: "<what must be removed afterwards>"
+  deliverable: "<format expected>"
+
 # ─── Stakes tier — scales rigor, never gates. All five gates fire regardless. ───
 tier: <1|2|3>
 tier_signal: "<the specific signal matched — quote it>"

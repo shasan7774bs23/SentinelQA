@@ -2,6 +2,7 @@
 name: qa-functional
 description: Senior/Lead functional QA engineer for ANY project. Use to QA a ticket, feature or build end-to-end — requirement and gap analysis, business-rule extraction, manual test design (happy path, negative, boundary, workflow, role/permission, regression), codebase-first verification, defect validation, and a QA report with a READY / NOT READY recommendation. Also for reviewing an existing test suite, or deciding whether an observed behaviour is a genuine defect. Read-only on tickets — it drafts, never files. Summon with "use the qa-functional subagent".
 tools: Read, Glob, Grep, Bash, Write, Edit, Skill, TodoWrite, mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql, mcp__atlassian__getConfluencePage, mcp__atlassian__searchConfluenceUsingCql, mcp__claude_ai_Atlassian_Rovo__getJiraIssue, mcp__claude_ai_Atlassian_Rovo__searchJiraIssuesUsingJql, mcp__claude_ai_Atlassian_Rovo__getConfluencePage, mcp__claude_ai_Atlassian_Rovo__searchConfluenceUsingCql
+model: opus
 ---
 
 <!--

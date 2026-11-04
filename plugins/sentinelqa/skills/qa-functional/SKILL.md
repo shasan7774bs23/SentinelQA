@@ -513,6 +513,113 @@ change? An unverified environment difference is not a defect.
 
 ---
 
+## Field rules — learned on real runs (always apply)
+
+Each rule below exists because a real run went wrong without it. They carry the same force as the
+hard rules.
+
+**Judgement**
+- **A person implying a defect is not evidence of one.** When challenged, re-verify, then report
+  what the evidence shows — including "I checked X, Y and Z and found no problem" — and ask what
+  exactly they are seeing. Never flip a verified verdict to match someone's framing, and never
+  over-correct into retracting a real observation. Moving a verdict in *either* direction needs new
+  evidence.
+- **Pre-file gate.** Before calling something a defect: a test that documents the change means it
+  was intentional; read the commit and ticket intent; grep other usages (the capability may have
+  moved, not vanished); compare with the legacy behaviour (parity is not a regression). A diff alone
+  is a hunch. If any check flips the finding, go back to the human **even if they already said
+  "file it"**.
+- **Read every DB script attached to the ticket**, not only the repo copy. DB changes are often
+  applied out of band and never committed; where the attachment and the repo differ, flag it and
+  state which one is deployed. A claim resting only on repo SQL is unverified.
+- **Decide "is this fix on that branch?" by file CONTENT, never by commit ancestry.** Cherry-picks
+  and re-applied patches change the hash, so the original commit is not an ancestor even when its
+  change is present. Diff the file, or grep the ticket's history marker.
+- **Trace enforcement, not configuration.** When verifying a documented control (limit, timeout,
+  permission), follow its enforcement path in source — registration, call site, units. A setting can
+  exist while its check is disabled or its unit is wrong.
+- **Ground business rules in an independent statement of intent** (spec, ticket comments, domain
+  document). A suite derived only from the application's source proves the code equals itself.
+  When intent and code disagree, report the disagreement; do not resolve it by trusting either side.
+- **Never choose, switch or update the branch you ground on.** The owner supplies the version. If the
+  version you were told, the checked-out branch and what the running app reports disagree, stop and
+  raise it. Read the feature's source (action, view, validator, permission gates) before calling an
+  observation an app bug.
+- **A failure only on the environment that carries the new build is evidence FOR a regression.**
+  Classify it "suspected regression — needs root cause" and diff against the baseline build to
+  settle it. "Environment difference" is not a synonym for "not a defect".
+
+**Inputs and blockers**
+- **Ask for everything missing in ONE batched question at the start:** the baseline ref to compare
+  against; the branch and the environment that runs it (then verify parity yourself); a scope
+  boundary stated as something countable; explicit write authorisation on the target environment
+  (name risky writes, propose a safe variant); which accounts and roles may be used; whether
+  subagents are authorised and the token/time budget; the depth expected; cleanup expectations; the
+  deliverable format. Record the answers in `00-intake.yml` → `upfront_inputs`.
+- **Baseline makes claims falsifiable.** For any migration, refactor or regression review, tag every
+  finding **REGRESSION** or **PRE-EXISTING** with the baseline evidence. A finding the baseline
+  reproduces identically is not a regression.
+- **Raise a blocker the moment it appears**, in the conversation, with exactly what unblocks it
+  (account, permission, approval). Never footnote it and carry on to a verdict over source-only core
+  paths. Prefer the least invasive unblock, scope any environment change to your own account, warn
+  before changing anything shared, then revoke it and confirm the baseline is restored.
+- **Volunteer the honest coverage number in the FIRST report**, not when asked.
+
+**Accounts and environments**
+- **Shared test logins pollute evidence.** If other testers use the same account, any data-dependent
+  observation may be theirs: read the underlying state immediately before and after, prefer records
+  you created for this run, corroborate in source. The audit log cannot tell testers apart.
+- **Never cycle a roster of shared accounts** to find one that works — failed logins lock accounts
+  other people depend on. One attempt with the account the plan names; if rejected, stop and ask.
+  Check the project's documented account record before asking for credentials; never print a
+  password into any file.
+- **An expired session redirects everything to login.** Re-authenticate and re-check before
+  recording any redirect or permission finding.
+- **Reach pages by real navigation** (menus, links, buttons), never by typing a URL, in live
+  execution and automation alike. A menu item that is not rendered is a finding ("not reachable:
+  menu item not rendered — permission or feature gate"), not something to bypass. Keep URLs for
+  asserting arrival only. (Typing a URL on purpose is a separate, deliberate security probe — see
+  `references/role-permission-testing.md`.)
+
+**Measuring**
+- **Derive counts and coverage from structured artifacts** (compiled test classes, parsed table rows),
+  never from a grep over prose — prose mentions ids and tags as often as it uses them. Report
+  "N of M" with the method used. Never report a coverage gap from id matching alone: map each
+  assertion to its expected result first.
+- **Coverage audits are source-driven and field-level.** Enumerate every user-facing control from the
+  views (inputs, radios, switches, pickers, uploads, buttons, and sections revealed by a toggle) and
+  check each one. Hunt conditional sections first — they are the most common miss. Never call
+  coverage complete from a module or workflow matrix.
+- **Generated documents (PDF, letters, forms):** assert that the seeded values are present in the
+  extracted text and absent fields are absent. A success status plus a valid file does not prove the
+  content was filled.
+
+**Running agents and scripts**
+- **Mechanical defect classes get a script, not more agents.** For any "find every X and compare it to
+  Y", a detector is exhaustive and its output is the evidence. Keep agents for judgement. State what
+  the script groups by, and treat every hit as a candidate that still needs the control check.
+- **Size the fleet to the budget.** Prefer fewer, wider agents and scripts; verify claims with targeted
+  greps at the cited lines; if an agent dies on a limit, resume it rather than relaunching; produce
+  one consolidated report.
+- **Before a multi-ticket sweep, build the coverage map from every index** (the ledger and the
+  delivered reports) with **no truncation** — never pipe a survey through `head`; a short list fails
+  silently and finished work gets redone. Show the buckets before spawning anything.
+- **Brief source-sweep agents narrowly:** scope by paths; the defect patterns already proven here,
+  with `file:line`; an explicit "already known — do not re-report" list; `file:line` plus a control
+  check for every claim; "if you find nothing new, say so — do not pad". Then re-verify their top
+  claims yourself, and give agent-sourced findings a weaker evidence label than ones you verified.
+- **Never relay a subagent's "done" unchecked.** Re-run both audits, compare each claimed copy with
+  its source, count the embedded images, scan written files for credentials, and check for stray
+  processes (e.g. a local web server left running) and uncommitted changes. An action that was
+  denied stays denied: never perform it on an agent's behalf, and never add a permission rule an
+  agent asks for — surface it to the human.
+- **Before any push, scan tracked files and history** for credentials, keys, tokens, connection
+  strings, internal hosts, personal data and documented unpatched vulnerabilities. Found → do not
+  push; redact locally. Already pushed → scrub history and rotate the credential, each step only with
+  explicit permission.
+
+---
+
 ## Reporting standards
 
 > ### ⛔ STOP — open the two templates before you write a single line
@@ -604,7 +711,7 @@ belongs in the file.
 
 The closeout audit below opens the **report**. It cannot see that a station never ran — a report
 can be perfectly structured and still be built on a plan that was never written, never reviewed
-and never approved. on a past release run every ticket passed `report-audit.py` while
+and never approved. On a past release run every ticket passed `report-audit.py` while
 `00-intake.yml`, `01-requirement.md`, `02-plan.md` and `06-decisions.md` were missing on every
 one of them. S1 and S2 had not run; Gates A, B and C had never fired.
 
@@ -697,6 +804,20 @@ and `html,body{height:100%}`, plus `tabindex="-1"` on the scroller, focus-on-loa
 window-level keydown fallback for PageUp/PageDown/Space/arrows/Home/End. Without this the page
 renders unscrollable in the preview pane. Do not re-derive this; copy the pattern from any existing
 report in the repo.
+
+**And the rest of the build, each one a defect that has shipped before:** a complete document
+(doctype, head, body) with `<meta charset="utf-8">` and the viewport meta **before** `<title>`
+(otherwise dashes and quotes turn to mojibake); every colour defined as a CSS variable with light
+AND dark values — **including `strong`/`b`**, or bold text renders invisible in one scheme; strip the
+empty `<thead>` that two-column info tables produce; wide tables, code and images each in their own
+`overflow-x:auto` box. **Verify before delivery:** serve the file over localhost with a cache-buster,
+scroll the scroller to the bottom and confirm the last paragraph is visible, check contrast in both
+schemes, and assert there are zero non-`data:` images. If no report exists to copy the scroll
+pattern from, `scripts/report-shelf.py` contains a working implementation (its index page).
+
+**Beyond the template sections**, open the report with a one-line provenance (branch, commit,
+baseline, site, build, date), give the evidence-label key with counts, and say how "newly
+introduced" was established.
 
 **State the file paths in your closing message** so the human knows where the report landed.
 

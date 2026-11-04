@@ -86,6 +86,19 @@ All five gates fire on **every** ticket. The tier changes how much gets *tested*
 Restart Claude Code. Then check it worked: `/qa-case` should appear when you type `/qa`, and
 `/agents` should list `qa-functional` and `lead-test-automation-engineer`.
 
+## Settings for identical behaviour
+
+SentinelQA behaves the same on every machine only if these match. Set them once:
+
+| Setting | Use | Why |
+|---|---|---|
+| **Model** | Both agents are pinned to **Opus**. Run your main session on Opus too: `/model opus` | Defect calls and verdicts need the strongest model; a weaker one changes results |
+| **Effort** | `/effort` → **xhigh** (or `"effortLevel": "xhigh"` in `~/.claude/settings.json`) | Deeper reasoning on gates, reconciliation and reports |
+| **Claude Code version** | Keep it updated (`claude update`). Tested on 2.1.318 | The skill relies on recent plugin features |
+| **Git-write guard** | Turn it on (see *Optional: git-write guard* below) | Claude asks before every commit/push, matching the lead's setup |
+| **Permission mode** | Your choice. In the default mode Claude asks before each action; *auto* mode asks less | Same logic either way, only fewer prompts |
+| **Project context** | Load your project's layer: its `CLAUDE.md`, the known-findings ledger at `.claude/qa/known-findings.md`, and any team context pack you were given | The method reads the project layer first (Step 0b); without it, already-ruled-out issues get raised again |
+
 ## Update
 
 ```

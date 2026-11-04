@@ -64,7 +64,7 @@ Silent last-write-wins on an approval workflow is worth reporting even if "worki
 
 ## Routing and assignment
 
-Where a workflow routes between actors (owner → witness → judge):
+Where a workflow routes between actors (owner → reviewer → approver):
 
 - Correct next actor per configuration
 - What happens when the next actor is unset, inactive, or deleted

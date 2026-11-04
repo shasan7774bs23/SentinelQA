@@ -70,7 +70,7 @@ Report coverage against **requirements**, never against test count. "84 test cas
 |---|---|---|---|
 | Acceptance criteria | 11 | 9 | AC-2, AC-7 |
 | Business rules | 14 | 12 | BR-006, BR-011 |
-| Roles in scope | 4 | 3 | Judge (not provisioned) |
+| Roles in scope | 4 | 3 | Approver (not provisioned) |
 | Impacted modules | 5 | 5 | — |
 ```
 
