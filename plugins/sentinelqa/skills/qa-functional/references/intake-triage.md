@@ -75,22 +75,6 @@ features depend on · 5: everyone, silently — data corruption, authorization b
 **Blast radius matters more than file count.** A one-line change to a shared authorization helper
 is a 5. A 400-line change to one isolated screen is a 2. Trace the callers, not the diff.
 
-## Step 3 — What the tier actually changes
-
-| | Tier 1 | Tier 2 | Tier 3 |
-|---|---|---|---|
-| Gate A &mdash; requirement sign-off | Skipped &mdash; note the rules inline | **Required** + interview | **Required** + interview + second reader |
-| Gate B &mdash; plan approval | Agent proceeds; plan still written and posted | **Required** | **Required**, named approver |
-| Suite scope | Happy path + the changed behaviour | Full design: happy, negative, boundary, workflow, role, regression | Full design + exploratory session + explicit rollback criterion |
-| Pass 1 codebase verification | Only the changed lines | Full, with `file:line` predictions | Full, plus a review of every caller of the changed symbol |
-| Regression set | Smoke + the mapped suite | Smoke + mapped + adjacent | Full regression |
-| Gates C, D, E | **Human, always** | **Human, always** | **Human, always** |
-
-The bottom row is the point. Rigor scales; **the defect call, the verdict and the release decision never
-do.** Those stay human at every tier, with no exception and no "it was only a Tier 1" argument.
-
----
-
 ## Step 4 — What the tier changes
 
 | | Tier 1 | Tier 2 | Tier 3 |
@@ -102,6 +86,9 @@ do.** Those stay human at every tier, with no exception and no "it was only a Ti
 | Rollback criterion in the plan | — | — | **Required** |
 | **Gates A · B · C · D · E** | **All fire** | **All fire** | **All fire** |
 
+The bottom row is the point. Rigor scales; **the gates never do.** The defect call, the verdict and
+the release decision stay human at every tier, with no exception and no "it was only a Tier 1" argument.
+
 ## Step 5 — Capability level
 
 State it plainly: **1** Analysis (ticket text only) · **2** Investigation (+ repo, code, logs) ·
@@ -109,7 +96,7 @@ State it plainly: **1** Analysis (ticket text only) · **2** Investigation (+ re
 
 ---
 
-## Step 4 — Autonomy mode per station
+## Step 6 — Autonomy mode per station
 
 Record the mode alongside the tier. See `gate-protocol.md` for what each mode means in practice.
 
