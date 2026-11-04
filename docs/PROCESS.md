@@ -284,6 +284,11 @@ send messages, or touch production.
 
 ## 7. Keeping the process honest over time
 
+The method is the same on every project; **how well it performs on a project depends on that
+project's layer**: its QA rules, its ledger and its memory. Start it with `/qa-init` on day one,
+and it grows with every run:
+
+
 - **The known-findings ledger** (`.claude/qa/known-findings.md`, one per project) records what was
   investigated and ruled out, so nobody raises the same non-bug twice. Start one from
   `templates/known-findings-ledger.md`.

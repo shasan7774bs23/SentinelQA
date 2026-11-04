@@ -12,7 +12,7 @@ evidence.
 | `qa-functional` agent | A senior functional QA engineer that runs the method on its own and stops at every gate | "use the qa-functional subagent for ABC-123" |
 | `lead-test-automation-engineer` agent | Builds, runs and debugs real automated tests in the project's own stack | `/qa-automate <request>` |
 | `release-gate` skill | Rolls up per-ticket QA reports into one release go/no-go | "is fix-version 2.4.0 ready to ship?" |
-| `/qa-case`, `/qa-automate` | Slash commands that start the two workflows above | Type them in Claude Code |
+| `/qa-init`, `/qa-case`, `/qa-automate` | Set up a project; start the two workflows above | Type them in Claude Code |
 | Audit scripts | `case-file-audit.py` proves the stations ran; `report-audit.py` proves the report is complete | The skill and agents run them automatically |
 | `report-shelf.py` | Files every finished report under `~/Downloads/QA-Reports/<PROJECT>/` with a newest-first index | Run automatically at the end of a QA run |
 
@@ -54,6 +54,7 @@ All five gates fire on **every** ticket. The tier changes how much gets *tested*
 
 | You want to… | Use |
 |---|---|
+| Set up SentinelQA for a new project (once per project) | `/qa-init` |
 | QA one ticket, step by step, approving each gate as you go | `/qa-case <TICKET-KEY>` |
 | Hand a ticket to an agent that works on its own until it hits a gate | "use the qa-functional subagent for <TICKET-KEY>" |
 | Ask whether something you saw is really a bug, or review a test suite | Just ask. The `qa-functional` skill loads by itself |
@@ -119,11 +120,15 @@ Nothing outside the plugin is touched, except the reports you published to
 ## First run, start to finish
 
 1. Open Claude Code **in the project repo** you are testing.
-2. Run `/qa-case ABC-123` (use your real ticket key).
-3. Claude creates `qa/ABC-123/` (the case file) and starts at S0. Answer its run-context
+2. **First time on this project:** run `/qa-init`. It asks about environments, how to confirm the
+   deployed build, test accounts by role (never passwords) and the repo's rules, then writes the
+   project's QA section, its known-findings ledger and its report-shelf name. Re-run it whenever
+   those change.
+3. Run `/qa-case ABC-123` (use your real ticket key).
+4. Claude creates `qa/ABC-123/` (the case file) and starts at S0. Answer its run-context
    questions: ticket, branch, deployed site, build, test account, scope.
-4. At each gate it **stops and waits for you**. Approve, or reject with a reason.
-5. At the end you get `ABC-123-QA-Report.md` plus a self-contained `.html` with screenshots, both
+5. At each gate it **stops and waits for you**. Approve, or reject with a reason.
+6. At the end you get `ABC-123-QA-Report.md` plus a self-contained `.html` with screenshots, both
    audited, and both filed on the report shelf.
 
 ## Optional configuration
