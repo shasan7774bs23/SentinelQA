@@ -79,7 +79,8 @@ When a report lists many defects, use the full body above where space allows, bu
 ```markdown
 ### BUG-<n> · <TICKET-KEY> — [Module] – [Condition/Action] – [Incorrect behaviour] · S<n> · P<n> · [Confirmed | Observed | Potential]
 
-**Steps to reproduce:**
+**Steps to reproduce**:
+
 1. <one UI action per step — real screen/tab/button/field names>
 2. …
 

@@ -63,9 +63,9 @@ When information is missing: **stop, identify the gap, ask a precise question.**
       **base64 data URI** so the file stays self-contained when copied to Downloads or emailed.
       Two mechanical traps, both hit on that run: do **not** set `loading="lazy"` on an inline
       data-URI image (the bytes are already present, and lazy images below the fold never decode —
-      the reader sees blank boxes); and **render-verify after building**, asserting
-      `img.complete && img.naturalWidth > 0` for every figure, because "the HTML contains an
-      `<img>` tag" is not the same claim as "the reader sees a picture".
+      the reader sees blank boxes); and **build the HTML with `scripts/report-html.py`**, which embeds every image and fails if
+      any cannot be embedded, because "the HTML contains an `<img>` tag" is not the same claim as
+      "the reader sees a picture".
 9d. **⛔ A PREDICTION IS NOT A DEFECT.** Reading the source and concluding "this will fail" is a
     hypothesis. It becomes a defect only when the application actually does it. **A finding you have
     not reproduced live must NOT appear in the Defects section and must NOT carry a severity or
@@ -196,6 +196,80 @@ happy paths · assume a requirement is complete · treat severity and priority a
 
 Everything else in this method is identical in both modes.
 
+## Step 00 — Dependency check: what this run has, what it lacks (first action, every run)
+
+Every machine is different. Before analysis, find out which dependencies this session actually has.
+**A missing dependency is never a reason to stop, and never a reason to keep asking.** Ask about all
+missing items **once**, in **one** batched question: *"Will you provide it? (yes → how / no)"*. Then
+continue with whatever exists, and record every gap in `00-intake.yml` → `dependencies`. Never ask
+again about an item that has been answered for this ticket. Read the answers back from
+`00-intake.yml` when you resume.
+
+**On a machine where row 9 (permission rules) is not yet settled, ask that ONE question first,
+before reading templates, probing the environment or writing any file.** Without the rules every one
+of those steps is a separate approval prompt; with them, none are. Send it as a short message of its
+own: *"First run of SentinelQA on this machine. Add its permission rules to your user settings, so QA
+runs stop asking before each step in every project? (yes / no)"* Act on the answer (row 9), then start
+the dependency check below. Never ask it again once `~/.sentinelqa/state.json` records the answer.
+
+**Check silently first. Ask only about what you could not find.** If the project's memory, its
+`CLAUDE.md` / `CLAUDE.local.md`, or an earlier case file under `qa/` answers an item, use that
+answer. Nothing has to be set up per project: the first ticket in a project asks, and the end-of-run
+memory proposal keeps the answers for the next ticket.
+
+| # | Dependency | How to detect it | If missing, and the user says no |
+|---|---|---|---|
+| 1 | **Ticket access** | Any tool whose name ends in `getJiraIssue` (`mcp__claude_ai_Atlassian_Rovo__…`, `mcp__claude_ai_Atlassian__…`, `mcp__atlassian__…`, or another Jira connector). **Whichever exists is the one to use.** The site comes from the project layer; otherwise call that connector's `getAccessibleAtlassianResources` | Ask the user to paste the ticket: description, **every** comment, and linked tickets. This is the only hard requirement: with no ticket text at all there is nothing to test against |
+| 2 | **Ticket attachments** (DB scripts, specs, screenshots) | List them from the ticket (`fields: ["attachment"]`). Download with `python ${CLAUDE_SKILL_DIR}/scripts/jira-attachments.py <KEY> --site <site> --out qa/<KEY>/attachments` **if** the user has set `JIRA_EMAIL` + `JIRA_API_TOKEN`. Exit code 3 means no credentials. That is not an error, so do not ask the user to log in or create a token | Ask once: *"Can you drop these files into `qa/<KEY>/attachments/`?"* If not: continue, list every unread attachment in the report as **Not reviewed**, and label any claim that depends on one **Unverified** |
+| 3 | **The project's source code** | The working folder is a repo holding the application code for this ticket (the ticket key in `git log`, or the feature's names in the source) | Ask: *"I can't find this project's source code here. Is it available to QA? (path / no)"*. On **"no"**, record `codebase: unavailable — confirmed by <name>, <date>` and continue. Pass 1 becomes **requirement-based predictions** (see *Two-pass verification*). Then Pass 2 tests everything reachable live |
+| 4 | **Test environment** (URL) and a way to confirm the deployed build | Project layer, or the ticket | Without an environment there is no live testing: deliver the analysis, Pass 1 and the complete test design, and mark every case Not Executed with the blocker named |
+| 5 | **Test accounts** by role | Project layer: role → where the credential lives | Test what the accounts you have can reach. Every other role-dependent case is Not Executed with the missing role named |
+| 6 | **Browser tool** | SentinelQA installs its own Playwright browser server (`mcp__plugin_sentinelqa_playwright__browser_*`). Any other `browser_navigate` tool (e.g. `mcp__playwright__…`) works too. It needs Node.js: if the server failed to start, `node --version` shows whether Node is missing | Fall back to authenticated HTTP (`curl`) for everything non-visual. Visual cases are Not Executed, with the blocker "no browser tool in this session" (and "install Node.js, then restart Claude Code" when Node is missing) |
+| 7 | **Python** (audit and report scripts) | `python --version`, then `py -3 --version`, then `python3 --version`. Use the first that works, and use that same command for every script call | Run the audit checks by hand from the script's rules, and state in the report that the scripted audits could not run |
+| 8 | **Project knowledge** (environments, accounts, build check) | Project memory, `CLAUDE.md` / `CLAUDE.local.md`, earlier `qa/*/00-intake.yml` | Ask only what this ticket needs, in the same batched message. At the end of the run, propose saving it to memory, so the next ticket in this project doesn't ask |
+| 9 | **Permission rules** (once per machine) | Read `~/.sentinelqa/state.json`. If it records `"permission_rules": "added"` or `"declined"`, this row is settled: skip it. Also skip it when the session runs in *auto* permission mode | Ask once, in the same batched message: *"Add SentinelQA's permission rules to your user settings, so QA runs stop asking before each step, in every project? (yes / no)"* On **yes**: merge the list from `references/permission-rules.md` into `~/.claude/settings.json` (keep every existing entry), then write `{"permission_rules": "added"}` to `~/.sentinelqa/state.json`. On **no**: write `{"permission_rules": "declined"}` there. Either way the question is never asked again on this machine |
+
+**If everything is available**, say so in one line and run the whole method.
+
+**Never** ask the user to log in, re-authenticate, or run any login command, and never run one
+yourself. If a connector reports that it needs authentication, treat it as missing (row 1, 2 or 6)
+and continue.
+
+**Jira connector notes (row 1):**
+- If one Jira connector fails, try the other one before calling Jira missing.
+- The older claude.ai **"Atlassian"** connector (`https://mcp.atlassian.com/v1/sse`) is being shut
+  down by Atlassian. It answers *"deprecated HTTP+SSE transport … is being phased out"*. When you see
+  that, say in one line that the **"Atlassian Rovo"** connector is the working one, and continue with
+  the other connector or with pasted ticket text.
+- **Never call a Jira tool with a guessed or placeholder site.** If the site is unknown and the
+  lookup fails, list the site under the missing items.
+
+**Keep QA files out of the project's git history.** When you create `qa/`, write a file
+`qa/.gitignore` containing the single line `*`, and the same file at `.playwright-mcp/.gitignore` (the
+browser tool writes its scratch files in `.playwright-mcp/`). A folder whose own `.gitignore` says `*`
+is invisible to git, including to `git add -A`. This needs no edit inside `.git/`, so the user gets no
+permission prompt. Skip this only if the project layer says QA files are committed in this repo.
+
+**An answer already recorded is not asked again.** If the project layer records that the source
+code is not available to QA, state it in one line ("source code: not available to QA, per the project
+layer") and continue. Ask only if something contradicts it.
+
+**Keep tool calls simple, so the project's permission rules match them and the user is not
+prompted:**
+- Read files with the Read, Glob and Grep tools, not `cat`, `ls` or `find`.
+- One command per Bash call. Never prefix a command with `cd`, and never use `git -C <path>`; you are
+  already in the project.
+- No inline `python -c` one-off scripts. Use SentinelQA's own scripts.
+- Copy a file with Read then Write, not `cp`. Read page text with `browser_snapshot`, not
+  `browser_evaluate`.
+- A revision is the `rev N` in the artifact's header. Never hash files to identify one.
+- **Save every screenshot straight into the case file:** `browser_take_screenshot` with
+  `filename` set to `qa/<TICKET-KEY>/04-evidence/<CASE-ID>.png`. Show it inside that case as
+  `![<CASE-ID>](04-evidence/<CASE-ID>.png)`. Never move or copy screenshots afterwards.
+- **Never use the browser's `browser_run_code_unsafe`.** Drive the page with normal browser actions
+  (navigate, click, type, snapshot, screenshot), and save network evidence with
+  `browser_network_requests` / `browser_network_request`.
+
 ## Step 0 — Capability detection (first action, every run)
 
 Determine and **state plainly** which level you are operating at:
@@ -292,7 +366,7 @@ halfway through.
 | 5 | **Test account and role** needed for the flows in scope | A permission the account lacks produces a blocked flow, not a defect. |
 | 6 | **First pass or re-test** — if a re-test, the fix commit or PR being verified | A re-test verifies a specific change; without it you are guessing at what should now be different. |
 
-**If any of these is missing, ask for it before testing — one short, numbered list.** Do not start
+**If any of these is missing, ask for it before testing — one short, numbered list, in the same single message as the Step 00 dependency question.** Do not start
 and discover it later; a run built on the wrong build or the wrong account is wasted work, and
 worse, it produces confident findings that are wrong.
 
@@ -432,7 +506,7 @@ tier would skip, with the cost. Full guidance in `references/gate-protocol.md`.
 5. **REJECTED** → correct **only what was rejected**, re-present with a **diff**, stamp the round in
    `06-decisions.md`. Use the fixed reject vocabulary in `gate-protocol.md`. Three non-converging
    rounds means the requirement is unclear — reopen Gate A.
-6. **APPROVED** → freeze the revision, record its hash in `06-decisions.md`, **post the plan to the
+6. **APPROVED** → freeze the revision, record its revision (`rev N`) in `06-decisions.md`, **post the plan to the
    ticket as a comment**, then continue to S3. Execution runs the approved plan and never silently
    re-decides its scope.
 
@@ -461,7 +535,19 @@ Sequencing matters for a reason: Pass 1 tells you *where to look* and *what a co
 be*, so Pass 2 tests a hypothesis instead of wandering. Reversed, you only find what happens to be
 visible on screen.
 
-If repo access is unavailable, say so — the report is single-pass and every finding is weaker for it.
+**When the source code is confirmed unavailable to QA** (Step 00, row 3), the run still has two
+passes:
+- **Pass 1 becomes requirement-based.** For every designed case, write down the expected result
+  derived from the spec, ticket comments and attachments, citing the rule (`R2.1`), and what you
+  predict could go wrong and why. Write it to `03-pass1.md` with the header
+  `Basis: requirement-only — source code unavailable (confirmed by <name>, <date>)`. It is
+  write-once, exactly like a codebase Pass 1.
+- **Pass 2 covers everything reachable live:** UI through the browser, HTTP and API behaviour, role
+  and permission checks with the accounts you have, boundary and negative inputs, and regression of
+  neighbouring features. Gather as much evidence as the environment allows.
+- The report states the basis plainly. No finding may carry a `file:line` citation, and nothing can
+  be labelled `Confirmed (source)`.
+
 If execution is unavailable, deliver Pass 1 plus the exact cases a human must run to close it.
 
 ## Evidence taxonomy
@@ -550,7 +636,7 @@ hard rules.
   settle it. "Environment difference" is not a synonym for "not a defect".
 
 **Inputs and blockers**
-- **Ask for everything missing in ONE batched question at the start:** the baseline ref to compare
+- **Ask for everything missing in ONE batched question at the start** (the same message as the Step 00 dependency question and the run context; never a second round for things you could have asked then): the baseline ref to compare
   against; the branch and the environment that runs it (then verify parity yourself); a scope
   boundary stated as something countable; explicit write authorisation on the target environment
   (name risky writes, propose a safe variant); which accounts and roles may be used; whether
@@ -638,8 +724,8 @@ hard rules.
 - **Test cases** → `templates/test-case.md`. Status is **Not Executed** unless you genuinely executed it.
   Never write Pass or Fail without execution evidence.
 - **The test plan presented at Gate B** → written from `templates/qa-plan.md` to
-  **`test-plan/<TICKET-KEY>-test-plan.md`** in the project (the folder and naming the project already
-  uses; match whatever convention you find there). Saved in the project, not left in the chat
+  the folder and naming the project already uses (for example `test-plan/<TICKET-KEY>-test-plan.md`).
+  If there is no convention, use `qa/<TICKET-KEY>/02-plan.md`. Saved in the project, not left in the chat
   session — it is what the human approves, what gets posted to the ticket, and what the automation
   agent builds against.
 - **Bugs** → `templates/bug-report.md`. Title formula: `[Module] – [Condition/Action] – [Incorrect behaviour]`
@@ -667,7 +753,7 @@ against the next run. Writing it is part of finishing the task, not an extra the
 | **Formats** | **Both**: `.md` (greppable, diffable) and `.html` (the one people actually read and share) |
 | **Naming** | `<TICKET-KEY>-QA-Report.md` / `.html` — e.g. `ABC-581-QA-Report.html` |
 | **Re-test naming** | `<TICKET-KEY>-ReTest-QA-Report-<YYYY-MM-DD>.md` / `.html` — never overwrite the original run |
-| **Location** | The project's existing report location — **match what the repo already does.** |
+| **Location** | The project's existing report location — **match what the repo already does.** If there is no convention, keep it in the case file `qa/<TICKET-KEY>/` (git-excluded, see Step 00). |
 | **Publishing** | Then put it on the per-project shelf — **never loose in Downloads**: `python ${CLAUDE_SKILL_DIR}/scripts/report-shelf.py publish <file> [<file>...]`. It resolves the project from the ticket key (`ABC-123` → `ABC`, or the name mapped in `~/.sentinelqa/projects.json`), files it as `~/Downloads/QA-Reports/<PROJECT>/YYYY-MM-DD_<name>` so name-sort is date-sort, and rebuilds the newest-first `index.html`. Add `--project <NAME>` when the filename has no ticket key; a report in `_Unsorted` is a mistake to fix. Quote the path it prints. |
 
 **Report structure** — the shape these reports already use:
@@ -798,6 +884,14 @@ human gave you. Bad ones are anything the repo, the ledger or git already record
 the ledger, not memory. Say which candidates you would skip and why, so the human is choosing from a
 filtered list. If the answer is "nothing", write nothing.
 
+**Build the HTML with SentinelQA's builder, never a hand-written one:**
+`python ${CLAUDE_SKILL_DIR}/scripts/report-html.py qa/<TICKET-KEY>/05-report.md`. It writes
+`<TICKET-KEY>-QA-Report.md` (an exact copy) and `<TICKET-KEY>-QA-Report.html` beside the report,
+embeds every screenshot, and applies every rule below. It exits 1 if any image is missing; fix the
+report or the evidence folder and rebuild. Run `report-audit.py` on the `<TICKET-KEY>-QA-Report.md`
+it wrote, then publish both files with `report-shelf.py`. The rules below are what the builder
+guarantees, and what to check if you ever must edit the HTML by hand.
+
 **HTML requirement — non-negotiable, it is a known-and-fixed defect:** wrap all content in
 `<div class="scroll-root">` styled `height:100dvh; overflow-y:auto`, with `body{overflow:hidden}`
 and `html,body{height:100%}`, plus `tabindex="-1"` on the scroller, focus-on-load, and a
@@ -810,9 +904,9 @@ report in the repo.
 (otherwise dashes and quotes turn to mojibake); every colour defined as a CSS variable with light
 AND dark values — **including `strong`/`b`**, or bold text renders invisible in one scheme; strip the
 empty `<thead>` that two-column info tables produce; wide tables, code and images each in their own
-`overflow-x:auto` box. **Verify before delivery:** serve the file over localhost with a cache-buster,
-scroll the scroller to the bottom and confirm the last paragraph is visible, check contrast in both
-schemes, and assert there are zero non-`data:` images. If no report exists to copy the scroll
+`overflow-x:auto` box. **Verify before delivery:** `report-html.py` must end with `RESULT: PASS` (every image embedded,
+none linked). Do not start a local web server or run scripts in the browser to check it; to look
+at it, open the `.html` from the report shelf. If no report exists to copy the scroll
 pattern from, `scripts/report-shelf.py` contains a working implementation (its index page).
 
 **Beyond the template sections**, open the report with a one-line provenance (branch, commit,

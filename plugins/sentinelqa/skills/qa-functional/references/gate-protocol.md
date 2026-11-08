@@ -153,7 +153,7 @@ Write the result to `02-plan.md`.
 
 | Outcome | What happens |
 |---|---|
-| **APPROVED** | Freeze `02-plan.md` at this revision, record its hash in `06-decisions.md`, post the plan to the ticket, continue to S3. |
+| **APPROVED** | Freeze `02-plan.md` at this revision, record its revision (`rev N`) in `06-decisions.md`, post the plan to the ticket, continue to S3. |
 | **APPROVED WITH EDITS** | Apply the edits verbatim, save as a new revision, post **that** revision. Never re-draft around an edit. |
 | **REJECTED** | Targeted revision — below. |
 

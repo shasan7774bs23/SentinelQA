@@ -8,12 +8,15 @@ evidence.
 
 | Piece | What it does | How to use it |
 |---|---|---|
-| `qa-functional` skill | The full method: S0 triage → requirement analysis → test design → two-pass verification → report, with five human gates | Ask Claude to QA a ticket, or run `/qa-case <TICKET-KEY>` |
-| `qa-functional` agent | A senior functional QA engineer that runs the method on its own and stops at every gate | "use the qa-functional subagent for ABC-123" |
+| `qa-functional` skill | The full method, **live browser testing included**: S0 triage → requirement analysis → test design → two-pass verification → report, with five human gates | **`/qa-functional <TICKET-KEY>`** |
+| `qa-functional` agent | Background helper: prepares the analysis and complete test plan on its own, then you continue with `/qa-functional` for the live testing | "use the qa-functional subagent for ABC-123" |
 | `lead-test-automation-engineer` agent | Builds, runs and debugs real automated tests in the project's own stack | `/qa-automate <request>` |
 | `release-gate` skill | Rolls up per-ticket QA reports into one release go/no-go | "is fix-version 2.4.0 ready to ship?" |
-| `/qa-init`, `/qa-case`, `/qa-automate` | Set up a project; start the two workflows above | Type them in Claude Code |
+| Playwright browser | Installed **with the plugin**, so live testing works in every project with no extra setup (needs Node.js) | Used automatically |
+| `/qa-automate` · `/qa-case` · `/qa-init` | Automation work · the same as `/qa-functional` · optional pre-fill of a project's details | Type them in Claude Code |
 | Audit scripts | `case-file-audit.py` proves the stations ran; `report-audit.py` proves the report is complete | The skill and agents run them automatically |
+| `report-html.py` | Builds the self-contained `.html` report (screenshots embedded, light and dark mode, scrolls in any viewer) from the Markdown report, so every teammate's HTML is identical | The skill runs it automatically |
+| `jira-attachments.py` | Downloads the ticket's attachments (DB scripts, specs, screenshots) into the case file | Automatic, if you set the optional Jira token (see *Optional configuration*) |
 | `report-shelf.py` | Files every finished report under `~/Downloads/QA-Reports/<PROJECT>/` with a newest-first index | Run automatically at the end of a QA run |
 
 ## How the process works
@@ -54,9 +57,8 @@ All five gates fire on **every** ticket. The tier changes how much gets *tested*
 
 | You want to… | Use |
 |---|---|
-| Set up SentinelQA for a new project (once per project) | `/qa-init` |
-| QA one ticket, step by step, approving each gate as you go | `/qa-case <TICKET-KEY>` |
-| Hand a ticket to an agent that works on its own until it hits a gate | "use the qa-functional subagent for <TICKET-KEY>" |
+| **QA one ticket end to end, including live testing** (the normal way) | **`/qa-functional <TICKET-KEY>`** |
+| Get the analysis and test plan prepared in the background first | "use the qa-functional subagent for <TICKET-KEY>", then `/qa-functional <TICKET-KEY>` to test. It continues from the agent's case file |
 | Ask whether something you saw is really a bug, or review a test suite | Just ask. The `qa-functional` skill loads by itself |
 | Write, run or debug automated tests | `/qa-automate <what you need>` |
 | Decide whether a fix-version can ship | "is fix-version <X> ready to ship?" (loads `release-gate`) |
@@ -72,10 +74,14 @@ All five gates fire on **every** ticket. The tier changes how much gets *tested*
    GitHub login or invitation is needed. On Windows, Git for Windows also provides Git Bash,
    which Claude Code and the agents use to run commands.
 4. **Optional, recommended:**
-   - The **Atlassian (Jira/Confluence) connector** in Claude, so the agents can read tickets
-     (read-only). Without it, paste the ticket text into the chat.
-   - The **Playwright MCP server** for browser testing:
-     `claude mcp add playwright -- npx @playwright/mcp@latest`
+   - A **Jira connector**, so the agents can read tickets (read-only). Use **"Atlassian Rovo"**
+     (Claude settings → Connectors). SentinelQA uses whichever Jira connector you have, including
+     the older **"Atlassian"** one or a locally added server named `atlassian`. **But Atlassian is
+     shutting down the older "Atlassian" connector:** it now answers *"deprecated HTTP+SSE transport
+     … is being phased out"* and can't read tickets. If you have only that one, add "Atlassian Rovo".
+     Without any connector, paste the ticket (description **and** comments) into the chat.
+   - **Node.js** (LTS), for the browser that SentinelQA installs. Check with `node --version`.
+     Without it, testing falls back to HTTP checks and visual cases are marked Not Executed.
 
 ## Install (2 commands, inside Claude Code)
 
@@ -84,8 +90,13 @@ All five gates fire on **every** ticket. The tier changes how much gets *tested*
 /plugin install sentinelqa@sentinelqa
 ```
 
-Restart Claude Code. Then check it worked: `/qa-case` should appear when you type `/qa`, and
-`/agents` should list `qa-functional` and `lead-test-automation-engineer`.
+Restart Claude Code. Then check it worked: `/qa-functional` should appear when you type `/qa`,
+`/agents` should list `qa-functional` and `lead-test-automation-engineer`, and `/mcp` should list
+SentinelQA's `playwright` server.
+
+**That's the whole setup: once per machine, for every project.** There is nothing to set up per
+project. The first time you run `/qa-functional`, it offers once to add SentinelQA's permission rules
+to your user settings, so it stops asking before each step, in every project.
 
 ## Settings for identical behaviour
 
@@ -97,8 +108,8 @@ SentinelQA behaves the same on every machine only if these match. Set them once:
 | **Effort** | `/effort` → **xhigh** (or `"effortLevel": "xhigh"` in `~/.claude/settings.json`) | Deeper reasoning on gates, reconciliation and reports |
 | **Claude Code version** | Keep it updated (`claude update`). Tested on 2.1.318 | The skill relies on recent plugin features |
 | **Git-write guard** | Turn it on (see *Optional: git-write guard* below) | Claude asks before every commit/push, matching the lead's setup |
-| **Permission mode** | Your choice. In the default mode Claude asks before each action; *auto* mode asks less | Same logic either way, only fewer prompts |
-| **Project context** | Load your project's layer: its `CLAUDE.md`, the known-findings ledger at `.claude/qa/known-findings.md`, and any team context pack you were given | The method reads the project layer first (Step 0b); without it, already-ruled-out issues get raised again |
+| **Permission rules** | Say **yes** when the first run offers them (once per machine, all projects). Not needed in *auto* permission mode | In the default permission mode, Claude otherwise asks before nearly every step: reading the plugin's own templates, saving each case-file file, running each audit. In a test, the rules cut those prompts from 6 to 0 |
+| **Project memory** | At the end of a run, accept the proposed memory entries (environments, accounts, how to confirm the build) | The next ticket in that project then asks only what's new, exactly as on the lead's machine |
 
 ## Update
 
@@ -120,16 +131,19 @@ Nothing outside the plugin is touched, except the reports you published to
 ## First run, start to finish
 
 1. Open Claude Code **in the project repo** you are testing.
-2. **First time on this project:** run `/qa-init`. It asks about environments, how to confirm the
-   deployed build, test accounts by role (never passwords) and the repo's rules, then writes the
-   project's QA section, its known-findings ledger and its report-shelf name. Re-run it whenever
-   those change.
-3. Run `/qa-case ABC-123` (use your real ticket key).
-4. Claude creates `qa/ABC-123/` (the case file) and starts at S0. Answer its run-context
-   questions: ticket, branch, deployed site, build, test account, scope.
-5. At each gate it **stops and waits for you**. Approve, or reject with a reason.
-6. At the end you get `ABC-123-QA-Report.md` plus a self-contained `.html` with screenshots, both
-   audited, and both filed on the report shelf.
+2. Run **`/qa-functional ABC-123`** (use your real ticket key).
+3. Claude reads the ticket, checks what this session has (Jira, attachments, source code,
+   environment, accounts, browser, Python), and creates `qa/ABC-123/`. Two one-line `.gitignore`
+   files (in `qa/` and in the browser tool's `.playwright-mcp/` folder) keep them out of git, so it never shows
+   up as a change to commit. Then it asks **one** message with
+   everything it couldn't find. Answer what you can. For anything you can't provide, say no and it
+   continues with what exists.
+   - **No source code available to QA?** Confirm that, and it tests from the requirement and the
+     live application: browser, HTTP and API, roles, boundaries.
+4. At each gate it **stops and waits for you**. Approve, or reject with a reason.
+5. At the end you get `ABC-123-QA-Report.md` plus a self-contained `.html` with screenshots, both
+   audited, and both filed on the report shelf. It then proposes what to remember about this
+   project, so the next ticket asks less.
 
 ## Optional configuration
 
@@ -145,6 +159,13 @@ folder named `ABC`. To give a ticket prefix a friendlier name, create
   "ticket_prefixes": { "ABC": "ABC-Web", "ABCAPI": "ABC-API" }
 }
 ```
+
+**Jira attachments (optional).** To let SentinelQA download the ticket's attachments (DB scripts,
+specs, screenshots), set two environment variables. On Jira Cloud these are `JIRA_EMAIL` and
+`JIRA_API_TOKEN`; create the token at *id.atlassian.com → Security → API tokens*. On Jira Server or
+Data Center, set `JIRA_PAT` instead. The token is read from the environment only, and never printed
+or saved. Without it, SentinelQA asks you once to drop the files into `qa/<KEY>/attachments/`, or
+continues and lists them as *Not reviewed* in the report.
 
 **Per-project memory.** The method reads each project's own `CLAUDE.md` and its known-findings
 ledger at `.claude/qa/known-findings.md`. The template is in
@@ -187,11 +208,16 @@ switched on by the plugin, because it applies to every repo you open. To opt in,
 
 | Symptom | Fix |
 |---|---|
-| `/qa-case` doesn't appear after installing | Restart Claude Code. Then run `/plugin`: SentinelQA should show as installed and enabled. If it's disabled, enable it there |
+| `/qa-functional` doesn't appear after installing | Restart Claude Code. Then run `/plugin`: SentinelQA should show as installed and enabled. If it's disabled, enable it there |
 | `/plugin marketplace add` fails | Check that `git --version` works and that you can open github.com. Then retry |
 | Audit scripts fail with "python not found" | See the Windows note under Prerequisites. `python --version` must work in a new terminal |
-| The agent says it can't read the ticket | Connect the Atlassian connector in Claude, or paste the ticket text (description **and** comments) into the chat |
-| The agent says Level 1 or 2 and can't execute tests | No browser tool is connected. Add the Playwright MCP server (see Prerequisites) and restart |
+| The agent says "No Jira tool in this session" | Connect **Atlassian Rovo** in Claude's settings, then restart Claude Code. Or paste the ticket text (description **and** comments) |
+| "deprecated HTTP+SSE transport … is being phased out" | You're on the older "Atlassian" connector, which Atlassian is retiring. Add **Atlassian Rovo** in Claude's settings → Connectors, then restart |
+| The `qa-functional` agent returned a plan but ran no tests | That is its job. Run `/qa-functional <KEY>` next: it continues from the same case file and runs the live tests |
+| `/qa-functional` can't execute tests | SentinelQA's browser didn't start. Check `node --version` (install Node.js LTS if missing), restart Claude Code, then check `/mcp`. Until then it tests over HTTP where it can |
+| Claude asks for permission at almost every step | Say yes when `/qa-functional` offers SentinelQA's permission rules, or add the list in `skills/qa-functional/references/permission-rules.md` to `~/.claude/settings.json` |
+| Attachments listed as "Not reviewed" | Set the Jira token (*Optional configuration*), or drop the files into `qa/<KEY>/attachments/` and say so |
+| `qa/` or `.playwright-mcp/` shows up in `git status` | Create `qa/.gitignore` (and `.playwright-mcp/.gitignore`) containing a single `*` line |
 | A report landed in `QA-Reports/_Unsorted` | The file name had no ticket key. Re-publish with `--project <NAME>` |
 | Updates don't show up | `/plugin marketplace update sentinelqa`, then restart Claude Code |
 

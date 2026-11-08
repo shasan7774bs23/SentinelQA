@@ -19,7 +19,7 @@ it applies to.** An approval with no artifact revision attached is not traceable
 
 ### Round 1 — `<YYYY-MM-DD HH:MM>` — `<APPROVED | REJECTED | CLARIFICATION REQUIRED>`
 - **Reviewer:** `<name>`
-- **Applies to:** `01-requirement.md` @ rev `<n>` (sha `<short-hash>`)
+- **Applies to:** `01-requirement.md` @ rev `<n>`
 - **Interview:** `<conducted with <name> | not applicable (Tier 1) | owner unreachable>`
 - **Decision / reason:** `<what was decided and why>`
 - **Changed as a result:** `<rules added, removed, corrected — or "nothing">`
@@ -35,7 +35,7 @@ it applies to.** An approval with no artifact revision attached is not traceable
 
 ### Round 1 — `<YYYY-MM-DD HH:MM>` — `REJECTED`
 - **Reviewer:** `<name>`
-- **Applies to:** `02-plan.md` @ rev 1 (sha `<short-hash>`) — `<n>` cases
+- **Applies to:** `02-plan.md` @ rev 1 — `<n>` cases
 - **Reject reasons** *(from the fixed vocabulary in `references/gate-protocol.md`)*:
   - `<TC-14..TC-19>` — duplicate equivalence class
   - missing dimension (state transition) — no case for `<scenario>`
@@ -43,7 +43,7 @@ it applies to.** An approval with no artifact revision attached is not traceable
 
 ### Round 2 — `<YYYY-MM-DD HH:MM>` — `APPROVED`
 - **Reviewer:** `<name>`
-- **Applies to:** `02-plan.md` @ rev 2 (sha `<short-hash>`) — `<n>` cases, `<n>` marked JUDGMENT
+- **Applies to:** `02-plan.md` @ rev 2 — `<n>` cases, `<n>` marked JUDGMENT
 - **Edits applied by reviewer:** `<verbatim list, or "none">`
 - **Posted to ticket:** `<KEY>` comment id `<id>` — `<timestamp>`
 - **Supersedes comment:** `<id, or "n/a — first post">`
@@ -70,7 +70,7 @@ it applies to.** An approval with no artifact revision attached is not traceable
 
 ### `<YYYY-MM-DD HH:MM>` — Verdict `<READY | READY WITH KNOWN ISSUES | NOT READY | BLOCKED — CLARIFICATION REQUIRED>`
 - **Signed by:** `<name>`
-- **Applies to:** `05-report.md` @ rev `<n>` (sha `<short-hash>`)
+- **Applies to:** `05-report.md` @ rev `<n>`
 - **Build:** `<build>` — *how confirmed:* `<how>`
 - **Justification:** `<why this verdict and not the adjacent one>`
 - **Filed to tracker** *(each item separately authorised)*:

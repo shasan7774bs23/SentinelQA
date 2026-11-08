@@ -51,6 +51,9 @@ import shutil
 import sys
 from collections import Counter
 
+if hasattr(sys.stdout, "reconfigure"):          # Windows consoles default to cp1252
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 DOWNLOADS = os.environ.get("SENTINELQA_DOWNLOADS_DIR") or os.path.join(os.path.expanduser("~"), "Downloads")
 SHELF = os.path.join(DOWNLOADS, "QA-Reports")
 MANIFEST_DIR = os.path.join(SHELF, "_manifest")

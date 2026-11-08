@@ -13,6 +13,7 @@ Checks encode the hard rules in SKILL.md. When a rule changes, change this too.
 import os
 import re
 import sys
+import urllib.parse
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -49,6 +50,19 @@ def main():
                     ev_dir = p
                     break
 
+    # Screenshots may be cited as `name.png`, as a Markdown image ![x](path/name.png), or as <img src>.
+    # All three count everywhere below, so the audit and report-html.py never disagree.
+    def image_refs(text):
+        names = set(re.findall(r"`([^`\n]+\.(?:png|jpg|jpeg|gif|webp))`", text, re.I))
+        for m in re.finditer(r"!\[[^\]]*\]\(\s*<?([^)>\n]+?)>?(?:\s+\"[^\"]*\")?\s*\)", text):
+            names.add(os.path.basename(urllib.parse.unquote(m.group(1).strip())))
+        for m in re.finditer(r"<img[^>]+src=[\"']([^\"']+)[\"']", text, re.I):
+            if not m.group(1).startswith("data:"):
+                names.add(os.path.basename(urllib.parse.unquote(m.group(1))))
+        return {n for n in names if re.search(r"\.(png|jpe?g|gif|webp)$", n, re.I)}
+
+    no_execution = bool(re.search(r"No execution evidence\s*[—\-]", t))
+
     # ---- R9b: every executed case carries full anatomy, passes included -------------
     case_hdr = re.compile(r"\n#{2,4} +((?:TC|EX|BUG|LIVE|S|N|O|F)-[\w.]+)[ ·:—-]")
     secs = case_hdr.split(t)
@@ -76,10 +90,10 @@ def main():
     NO_SHOT_REASON = re.compile(
         r"(no screenshot|not rendered|HTTP[- ]level only|status code only|redirect(s)? (back |to )"
         r"|bounce[sd]? to|cannot be photograph|nothing to photograph|not visible in (the )?UI"
-        r"|blocked by|refused by|classifier|not reachable|does not exist)", re.I)
+        r"|blocked by|refused by|classifier|not reachable|does not exist|not executed)", re.I)
     for cid, body in cases:
         body = body.split("\n## ")[0]
-        has_shot = bool(re.search(r"`[^`]+\.(?:png|jpg|jpeg|gif|webp)`", body))
+        has_shot = bool(image_refs(body))
         if not has_shot and not NO_SHOT_REASON.search(body):
             fail("R9b-i", f"{cid} has NO screenshot and no stated reason — a passing case needs a "
                           f"picture of it passing, not just an API response. Capture one, or say in "
@@ -92,8 +106,11 @@ def main():
     # HTTP-only permission denial + a SQL script + a blocked case). It is NOT a licence to justify
     # everything away: a run where most cases have a UI and none has a picture will still fail the
     # per-case check, case by case.
-    shots_in_report = set(re.findall(r"`([\w][\w\-.]*\.(?:png|jpg|jpeg|gif|webp))`", t))
-    if cases and not shots_in_report:
+    shots_in_report = image_refs(t)
+    if cases and not shots_in_report and no_execution:
+        warn("R9b-i", "no screenshot at all - accepted because the report states 'No execution "
+                      "evidence'; every case must be Not Executed with its blocker named")
+    elif cases and not shots_in_report:
         fail("R9b-i", "this report contains NO screenshot at all. Every report must carry visual "
                       "evidence for what it executed — passes included. Drive the UI and capture it.")
 
@@ -149,9 +166,12 @@ def main():
     if not re.search(r"#+ *\d*\.? *Evidence index", t, re.I):
         fail("R9c", "no Evidence index section")
     listed = set(re.findall(r"`([\w][\w\-.]*\.(?:png|jpg|jpeg|gif|webp|pdf|har|json|txt|log))`", t))
+    # Any backticked file name counts as a reference (an execution-log.md, a .csv, a .sql...).
+    # Only the strict list above is used for "cited but missing", so naming 02-plan.md is not a failure.
+    mentioned = set(re.findall(r"`([\w][\w\-.]*\.[A-Za-z0-9]{1,5})`", t)) | image_refs(t)
     if ev_dir and os.path.isdir(ev_dir):
         on_disk = {f for f in os.listdir(ev_dir) if not f.startswith(".")}
-        for f in sorted(on_disk - listed):
+        for f in sorted(on_disk - listed - mentioned):
             fail("R9c", f"evidence file on disk but never referenced: {f} "
                         f"(an untold finding, or dead weight — resolve it)")
         for f in sorted(listed - on_disk):

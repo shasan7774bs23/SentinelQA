@@ -22,6 +22,9 @@ import os
 import re
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):          # Windows consoles default to cp1252
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 REQUIRED = [
     ("00-intake.yml",     "S0", "triage + run context"),
     ("01-requirement.md", "S1", "business rules + gaps"),
@@ -33,8 +36,12 @@ REQUIRED = [
 PRE_S3 = {"00-intake.yml", "01-requirement.md", "02-plan.md", "06-decisions.md"}
 
 # An unfilled template placeholder means the file was created but never actually written.
-PLACEHOLDER = re.compile(r"<[A-Za-z0-9 _/|.-]{2,40}>")
-OUTCOME = re.compile(r"\b(APPROVED|REJECTED|CLARIFICATION REQUIRED|WITHDRAWN|CONFIRMED)\b")
+PLACEHOLDER = re.compile(r"<[^<>\n]{2,80}>")
+# A template line still carrying a backticked `<placeholder>` was never filled in: it must not count
+# as a decision, even though the template's placeholders contain words like APPROVED and "Reviewer:".
+PH_LINE = re.compile(r"`<[^`\n]{1,160}>`")
+OUTCOME = re.compile(r"\b(APPROVED|REJECTED|CLARIFICATION REQUIRED|WITHDRAWN|NOT A DEFECT|"
+                     r"NEEDS MORE EVIDENCE|CONFIRMED)\b")
 
 fails = []
 warns = []
@@ -79,7 +86,13 @@ def main():
             fail("C1", "%-18s MISSING  -> station %s (%s) did not run" % (name, station, what))
 
     # ---- C2: evidence directory exists and is not empty ------------------------------------
-    if not pre_s3:
+    level = re.search(r"^\s*capability_level:\s*([123])\b",
+                      read(os.path.join(case, "00-intake.yml")), re.M)
+    no_exec = bool(level and level.group(1) in ("1", "2"))
+    if not pre_s3 and no_exec:
+        warn("C2", "capability level %s (no live execution) - no evidence folder required; every "
+                   "case must be Not Executed with its blocker named" % level.group(1))
+    elif not pre_s3:
         ev = os.path.join(case, "04-evidence")
         if not os.path.isdir(ev):
             fail("C2", "04-evidence/ MISSING -> no live execution evidence was captured")
@@ -109,21 +122,31 @@ def main():
         d = read(dpath)
         gates = ["A", "B"] if pre_s3 else ["A", "B", "C"]
         for g in gates:
-            m = re.search(r"##\s*Gate\s*%s\b(.*?)(?=\n##\s|\Z)" % g, d, re.S | re.I)
-            if not m:
+            # The log is APPEND-ONLY, so one gate can have several sections: "awaiting decision"
+            # first, the decision appended later. Judge the gate on all of them, never only the first.
+            bodies = ["\n".join(ln for ln in m.group(1).splitlines() if not PH_LINE.search(ln))
+                      for m in re.finditer(r"##\s*Gate\s*%s\b(.*?)(?=\n##\s|\Z)" % g, d, re.S | re.I)]
+            if not bodies:
                 fail("C4", "06-decisions.md has no 'Gate %s' section -> that gate never fired" % g)
                 continue
-            body = m.group(1)
-            if not OUTCOME.search(body):
+            decided = [b for b in bodies if OUTCOME.search(b)]
+            if not decided:
                 fail("C4", "Gate %s is present but records no outcome "
                            "(APPROVED / REJECTED / CLARIFICATION REQUIRED) -> "
                            "it was documented, not decided" % g)
-            if not re.search(r"\b20\d\d-\d\d-\d\d\b", body):
-                warn("C4", "Gate %s carries no date - an approval with no timestamp is not "
-                           "traceable" % g)
-            if not re.search(r"(Reviewer|Approver|Decided by)\s*:", body, re.I):
+                continue
+            if not any(re.search(r"(Reviewer|Approver|Decided by)\s*:", b, re.I) for b in decided):
                 fail("C4", "Gate %s names no reviewer -> 'a human approved this' is a claim, "
                            "not a fact" % g)
+            if not any(re.search(r"\b20\d\d-\d\d-\d\d\b", b) for b in decided):
+                warn("C4", "Gate %s carries no date - an approval with no timestamp is not "
+                           "traceable" % g)
+            latest = [m.group(1) for b in decided for m in OUTCOME.finditer(b)][-1]
+            if pre_s3 and g == "B" and latest != "APPROVED":
+                fail("C4", "Gate B's latest decision is %s, not APPROVED -> the plan is not "
+                           "approved; do not execute" % latest)
+            if pre_s3 and g == "A" and latest == "REJECTED":
+                fail("C4", "Gate A's latest decision is REJECTED -> re-analyse before designing")
 
     # ---- C5: no BUG reached the report without passing Gate C ------------------------------
     if not pre_s3:

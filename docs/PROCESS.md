@@ -72,7 +72,26 @@ Two files have special rules, and they are what make the record trustworthy:
 
 ### S0 — Intake & triage: "what are we testing, and how much does it matter?"
 
-The agent first confirms six facts. **It never assumes them:**
+**First, a dependency check.** Every machine and project is different, so the agent first checks
+what this session actually has, without asking:
+
+| Dependency | If it is missing |
+|---|---|
+| Ticket access (whichever Jira connector exists; **Atlassian Rovo** is the one that works today) | You paste the ticket text. This is the only thing it can't work without |
+| Ticket attachments (DB scripts, specs, screenshots) | You drop the files into the case file, or it lists them as *Not reviewed* |
+| The project's source code | Once you confirm it isn't available to QA, it tests from the requirement and the live app |
+| Test environment and build check | It delivers the analysis and full test design, and marks cases *Not Executed* |
+| Test accounts by role | It tests what the accounts it has can reach |
+| Browser tool | It tests over HTTP where it can, and marks visual cases *Not Executed* |
+| Python (for the audits) | It runs the audit checks by hand and says so |
+
+Everything it couldn't find goes into **one** message: *"Will you provide it? (yes → how / no)"*.
+A "no" never stops the run; the agent continues with what exists and records the gap, so the report
+says exactly what wasn't covered and why. It never asks you to log in, and it never asks the same
+thing twice for the same ticket. It also writes a one-line `qa/.gitignore`, so the case file never shows up as a change to
+commit.
+
+**Then it confirms six facts. It never assumes them:**
 
 | # | Fact | Why |
 |---|---|---|
@@ -277,6 +296,13 @@ Anything the agent hands you to decide follows the **decision brief** format
 
 It ends with a **"Your decisions"** checklist, so you can read it once and decide.
 
+**`/qa-functional` versus the `qa-functional` agent.** `/qa-functional <KEY>` is the full run, live
+testing included: it works in your own session, with the browser SentinelQA installs, and stops at
+each gate for you. The `qa-functional` agent is a background helper for the analysis and test-plan
+half. An agent can't wait for a person at a gate, so it stops at the first gate. Its last line always
+tells you the next step: `/qa-functional <KEY>`, which continues from the same case file and runs
+the tests. Automation work goes to `/qa-automate`.
+
 Things the agents **never** do on their own: file or edit tickets, post comments, commit, push,
 send messages, or touch production.
 
@@ -285,8 +311,9 @@ send messages, or touch production.
 ## 7. Keeping the process honest over time
 
 The method is the same on every project; **how well it performs on a project depends on that
-project's layer**: its QA rules, its ledger and its memory. Start it with `/qa-init` on day one,
-and it grows with every run:
+project's layer**: its QA rules, its ledger and its memory. Nothing has to be set up first: the first
+ticket asks what it needs, and at the end of each run you accept the memory entries worth keeping, so
+it grows with every run:
 
 
 - **The known-findings ledger** (`.claude/qa/known-findings.md`, one per project) records what was

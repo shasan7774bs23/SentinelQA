@@ -1,5 +1,5 @@
 ---
-description: Set up SentinelQA for the project in the current folder — writes its QA project layer (QA rules section, known-findings ledger, report-shelf name). Run once per project; re-run any time to update.
+description: OPTIONAL — pre-fill a project's QA details (environments, accounts, rules, known-findings ledger) so its first ticket asks fewer questions. Never required; /qa-functional works in any project without it.
 ---
 
 Set up the **SentinelQA project layer** for the project in the current working directory. The
@@ -30,6 +30,13 @@ Read, don't assume:
 - Does the project's own `CLAUDE.md` forbid commits or writes (a review-only repo)?
 - Which tools this session actually has: a browser tool (e.g. Playwright MCP), an API client, a
   ticket-system connector. This decides the capability level the method can reach here.
+- **Jira:** if any tool ending in `getJiraIssue` exists (Atlassian Rovo, Atlassian, or a local
+  `atlassian` server), call that connector's `getAccessibleAtlassianResources` to read the site URL.
+  If it needs authentication, treat Jira as not connected. Never ask the user to log in.
+- **Source code:** is the application's source code in this folder, or is this a test-only or docs-only
+  folder?
+- **Git:** is `qa/` already ignored (`git check-ignore -q qa/x`)? Does `.claude/settings.local.json`
+  exist?
 
 ## Step 2 — Ask ONE batched question for whatever is still unknown
 
@@ -37,16 +44,21 @@ Skip anything already answered in `$ARGUMENTS` or found in Step 1. Number the qu
 answerable in a few words.
 
 1. **Project name** as it should appear on the report shelf, and the **ticket-key prefix(es)**.
-2. **Ticket system** (Jira, Azure DevOps, GitHub Issues, Linear, other) and **test-management tool**, if any.
-3. **App type**: web, API-only, mobile, desktop, or a mix.
-4. **Environments**: name → URL, and which branch/build each normally runs.
-5. **How to confirm the deployed build** on each environment, by server behaviour (a version
+2. **Ticket system** (Jira, Azure DevOps, GitHub Issues, Linear, other), the **Jira site URL** if not
+   found in Step 1, and the **test-management tool**, if any.
+3. **Source code:** is the application's source code available to QA? If yes, where (this folder,
+   another path)? If no, say so: the method then tests from the requirement and the live app.
+4. **App type**: web, API-only, mobile, desktop, or a mix.
+5. **Environments**: name → URL, and which branch/build each normally runs.
+6. **How to confirm the deployed build** on each environment, by server behaviour (a version
    endpoint, a build fingerprint, a feature only the new build has). "The footer" alone is not enough.
-6. **Test accounts by role**: role → where its credential lives. Never the password itself.
-7. **Write rules for this repo**: may QA files be committed here, or is it review-only?
-8. **Where QA reports should live** in this repo (or "no convention yet").
-9. **Known gotchas** worth recording now: flaky areas, slow environments, shared accounts, data that
+7. **Test accounts by role**: role → where its credential lives. Never the password itself.
+8. **Write rules for this repo**: may QA files be committed here, or is it review-only?
+9. **Where QA reports should live** in this repo (or "no convention yet").
+10. **Known gotchas** worth recording now: flaky areas, slow environments, shared accounts, data that
    must not be touched. (Optional.)
+11. **Fewer approval prompts?** If SentinelQA's permission rules are not yet in your user settings:
+    may I add them (Step 3 E)? They apply to all projects. (Recommended: yes.)
 
 ## Step 3 — Propose (and wait)
 
@@ -58,7 +70,8 @@ Show exactly what you will write:
 <!-- sentinelqa:qa-init:start -->
 ## QA (SentinelQA project layer)
 
-- **Project:** <name> · **Ticket prefix:** <ABC> · **Tickets:** <system> · **Test management:** <tool or none>
+- **Project:** <name> · **Ticket prefix:** <ABC> · **Tickets:** <system> · **Jira site:** <site or n/a> · **Test management:** <tool or none>
+- **Source code:** <this folder | path | not available to QA — test from requirement + live app>
 - **App type:** <web/API/…> · **Execution here:** <named tool, e.g. Playwright MCP> → capability Level <1|2|3>
 - **Stack:** <languages / frameworks / test frameworks found>
 
@@ -85,12 +98,25 @@ Show exactly what you will write:
 - Into **`CLAUDE.local.md`** instead — when the repo is review-only, or the user prefers it private.
   Claude Code loads it automatically. Then also add `CLAUDE.local.md` and `.claude/qa/` to
   `.git/info/exclude`, so they can never be committed by accident.
+- **Always** (unless the team commits QA files here, per question 8): write `qa/.gitignore` and
+  `.playwright-mcp/.gitignore` (the browser tool's scratch folder), each containing the single line `*`.
+  That makes both folders invisible to git with no edit inside `.git/`. Also add
+  `.claude/settings.local.json` to `.git/info/exclude` if git does not already ignore it. That file is
+  local to this clone and never committed. Its path comes from `git rev-parse --git-path info/exclude`.
 
-**C. The known-findings ledger** at `.claude/qa/known-findings.md`, created from the qa-functional
-skill's `templates/known-findings-ledger.md` **only if it does not exist** (never overwrite a ledger).
+**C. The known-findings ledger** at `.claude/qa/known-findings.md`, created from the
+`sentinelqa:qa-functional` skill's `templates/known-findings-ledger.md` (load that skill to get its
+folder; never guess the home folder from a user name or email) **only if it does not exist** (never overwrite a ledger).
 
 **D. The report-shelf name:** merge `"<PREFIX>": "<Project name>"` into the `ticket_prefixes` object of
 `~/.sentinelqa/projects.json` (create the file if missing; keep every existing entry).
+
+**E. Permission rules** (only if question 11 is yes, and only if they are not already there). Merge
+the list from the `sentinelqa:qa-functional` skill's `references/permission-rules.md` into the
+`permissions.allow` list of the **user** settings `~/.claude/settings.json`, keeping every existing
+entry. They then apply to every project, so this happens once per machine. Optionally add one
+`"Bash(curl *<host>*)"` rule per test-environment host from question 5 to this project's
+`.claude/settings.local.json` (never a production host).
 
 Then stop and ask: *"Write these? (yes / change …)"*. Skip the wait only when `$ARGUMENTS` has `--yes`.
 
@@ -101,6 +127,9 @@ ledger lives there); that prompt is expected, so tell the user to approve it. Th
 - the markers appear exactly once, and nothing outside them changed;
 - no password- or token-like value was written anywhere;
 - `projects.json` is valid JSON and still contains every earlier entry.
+- Any settings file written is valid JSON and still contains every earlier entry.
+- `git check-ignore -q qa/x` now succeeds and `git status` shows nothing from `qa/` (unless the team
+  commits QA files).
 
 ## Step 5 — Hand over
 
@@ -113,4 +142,4 @@ In plain English:
    - after each report, accept the agent's proposed memory entries (environment quirks, account
      gotchas, lessons);
    - re-run `/qa-init` whenever environments, accounts or rules change.
-4. **Next step:** `/qa-case <TICKET-KEY>` to run the first ticket.
+4. **Next step:** `/qa-functional <TICKET-KEY>` to run the first ticket.

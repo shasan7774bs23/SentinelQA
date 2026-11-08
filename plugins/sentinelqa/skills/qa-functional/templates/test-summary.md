@@ -141,6 +141,27 @@ where available — not guessed.>
 <Anything still Clarification Required. If any is marked Blocking, the recommendation
 above cannot be READY.>
 
+### How every executed case is written (passes included)
+
+```markdown
+#### TC-01 · Apply SAVE10 to a $100.00 order
+
+**Steps to reproduce**:
+
+1. Open the checkout page.
+2. Enter 100.00 in **Order total** and SAVE10 in **Discount code**.
+3. Press **Apply**.
+
+**Expected:** Amount to pay $90.00 (AC1)
+**Actual:** Amount to pay $90.00. **Pass.** Confirmed (reproduced).
+**Evidence:** `TC-01.png`
+
+![TC-01](04-evidence/TC-01.png)
+```
+
+The backticked file name is what the audit counts. The image line is what `report-html.py` embeds.
+A case with no screenshot states why in its own body (for example "Not Executed - blocked by …").
+
 ## 9. Evidence
 
 <What exists and where: screenshots, logs, responses. If execution didn't happen, say
