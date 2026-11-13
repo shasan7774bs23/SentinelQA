@@ -88,7 +88,7 @@ from `python` to `python3`), but have not been tested yet; please report anythin
 **1. Add and install the plugin** (inside Claude Code):
 
 ```
-/plugin marketplace add shasan7774bs23/SentinelQA
+/plugin marketplace add shasan7774bs23/sentinelqa-claude-plugin
 /plugin install sentinelqa@sentinelqa
 ```
 
