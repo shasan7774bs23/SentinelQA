@@ -269,3 +269,7 @@ switched on by the plugin, because it applies to every repo you open. To opt in,
 
 Do not edit your installed copy, because the next update overwrites it. To propose a change,
 open an issue on this repo: what you would change, and the run that showed why.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

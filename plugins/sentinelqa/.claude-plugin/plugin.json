@@ -1,6 +1,10 @@
 {
   "name": "sentinelqa",
   "version": "1.1.0",
-  "description": "Gated, evidence-first QA process: functional QA and test-automation agents, the qa-functional and release-gate skills, case-file and report audits, and /qa-init + /qa-case + /qa-automate commands. No proof, no pass.",
-  "author": { "name": "shasan7774bs23" }
+  "description": "Agentic, evidence-first QA for Claude Code: one-time /qa-setup for all projects; /qa-functional runs the gated QA method with live browser testing and audited reports; /qa-automate builds and runs automated tests; release-gate for go/no-go. No proof, no pass.",
+  "author": {
+    "name": "shasan7774bs23"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/shasan7774bs23/agentic-qa-autopilot"
 }
