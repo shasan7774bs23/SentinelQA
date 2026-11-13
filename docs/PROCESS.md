@@ -72,7 +72,16 @@ Two files have special rules, and they are what make the record trustworthy:
 
 ### S0 — Intake & triage: "what are we testing, and how much does it matter?"
 
-**First, a dependency check.** Every machine and project is different, so the agent first checks
+**First, your saved profile.** `/qa-setup`, run once per machine, saves each of your projects: its environments, accounts by role, whether QA can see the source code, and where case files go. Every run reads it first, so it never asks again for what you told it.
+
+**Then, the start-of-run check.** Before any testing, the run confirms it is open in the ticket's
+project folder (if not, it tells you where to open Claude Code, or you choose to continue without the
+code), reads the ticket, sends one request to the test environment (never production), finds each
+role's login and logs in once per role. Everything missing or failing goes into **one** message. After
+your answer it runs through to the next gate; anything that breaks mid-run is marked *Not executed*
+with its reason instead of stopping the test.
+
+**Then, a dependency check.** Every machine and project is different, so the agent first checks
 what this session actually has, without asking:
 
 | Dependency | If it is missing |
@@ -88,8 +97,9 @@ what this session actually has, without asking:
 Everything it couldn't find goes into **one** message: *"Will you provide it? (yes → how / no)"*.
 A "no" never stops the run; the agent continues with what exists and records the gap, so the report
 says exactly what wasn't covered and why. It never asks you to log in, and it never asks the same
-thing twice for the same ticket. It also writes a one-line `qa/.gitignore`, so the case file never shows up as a change to
-commit.
+thing twice for the same ticket. For an in-repo case folder it writes a one-line `qa/.gitignore`, so the case file never shows up as a
+change to commit; for a read-only project everything goes in an external folder and the repo is not
+touched.
 
 **Then it confirms six facts. It never assumes them:**
 
@@ -199,7 +209,7 @@ hypothesis instead of wandering.
 - A **control check**: does it also fail on an unaffected flow, or on a build without the change?
   If it does, it's an environment issue, not this ticket's bug.
 - A **ledger check**: is it already in the project's known-findings ledger
-  (`.claude/qa/known-findings.md`)? Then it's reported as **Known** and not raised again.
+  (the project's known-findings ledger)? Then it's reported as **Known** and not raised again.
 - Environment down or wrong build → `BLOCKED`, **never** `FAIL`. A missing permission on the test
   account → `BLOCKED` for that flow, not a defect.
 
@@ -311,12 +321,12 @@ send messages, or touch production.
 ## 7. Keeping the process honest over time
 
 The method is the same on every project; **how well it performs on a project depends on that
-project's layer**: its QA rules, its ledger and its memory. Nothing has to be set up first: the first
-ticket asks what it needs, and at the end of each run you accept the memory entries worth keeping, so
-it grows with every run:
+project's layer**: its QA rules, its ledger and its memory. `/qa-setup` records the basics once; the first ticket asks anything still missing, and at the end
+of each run you accept what is worth keeping, so it grows with every run:
 
 
-- **The known-findings ledger** (`.claude/qa/known-findings.md`, one per project) records what was
+- **The known-findings ledger** (one per project: `.claude/qa/known-findings.md`, or next to the case
+  files for a read-only project) records what was
   investigated and ruled out, so nobody raises the same non-bug twice. Start one from
   `templates/known-findings-ledger.md`.
 - **Agent assurance** (`references/agent-assurance.md`): a ten-ticket "golden set" from your own

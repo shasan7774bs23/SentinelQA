@@ -7,7 +7,7 @@
     {
       "name": "sentinelqa",
       "description": "Gated, evidence-first QA process: functional QA and test-automation agents, the qa-functional and release-gate skills, case-file and report audits, and /qa-init + /qa-case + /qa-automate commands. No proof, no pass.",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "source": "./plugins/sentinelqa",
       "category": "testing"
     }

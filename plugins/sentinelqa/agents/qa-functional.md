@@ -184,7 +184,9 @@ Full detail in the skill's *Step 0c*.
 
 ## The case file — work inside it
 
-Everything you produce belongs in `qa/<TICKET-KEY>/`:
+Everything you produce belongs in the case folder `<case_root>/<TICKET-KEY>/` from the profile
+(`qa/<TICKET-KEY>/` by default; outside the repo for a read-only project, and then nothing at all is
+written inside the repo). Wherever this file says `qa/<TICKET>`, read it as that case folder:
 
 ```
 00-intake.yml · 01-requirement.md · 02-plan.md · 03-pass1.md (WRITE-ONCE)
@@ -259,12 +261,18 @@ Never end with only "BLOCKED". Say what you completed, what you need, and that n
 
 ### Dependency check, as a subagent (the skill's Step 00)
 
-Run Step 00 silently. You cannot ask mid-run, so:
+Run Step 00 silently, starting with `python <SKILL_DIR>/scripts/sentinelqa-setup.py match --cwd .
+--ticket <TICKET-KEY>`: a matched project's environments, accounts, source-code answer and case root
+are known facts, not questions. You cannot ask mid-run, so:
 - **Use whatever exists.** Ticket: whichever Atlassian tool is in your tool list. If none is, say
   **"No Jira tool in this session"** and work from any ticket text you were given.
 - **Source code not found in the workspace:** do not stop. Record `source_code: not found in
   workspace — needs confirmation`, write a **requirement-based** Pass 1 (see the skill), and design
   the complete suite. Ask for confirmation in your return.
+- **Run the start-of-run check** (the skill's `situation` A–E and `sentinelqa-setup.py preflight
+  --cwd . --ticket <KEY> --env <ENV> --roles <roles>`). Situation **B** (the project lives in another
+  folder) goes first in your return: tell the person where to open Claude Code. Never print a
+  credential.
 - **Collect every missing dependency into ONE "Needs from you" list** in your return. Each item
   says what it is, why it matters, and what happens if the answer is no. Ask about each item once.
 

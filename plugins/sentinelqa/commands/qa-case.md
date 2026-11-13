@@ -6,7 +6,8 @@ description: Same as /qa-functional — open or resume a QA case file for a tick
 run instructions spelled out.)*
 
 Load the **`sentinelqa:qa-functional`** skill (Skill tool, exactly that name) and run the method for
-the ticket below, working inside its case file at `qa/<TICKET-KEY>/` in the current folder.
+the ticket below, working inside its case file: `<case_root>/<TICKET-KEY>/` from this machine's
+SentinelQA profile (default `qa/<TICKET-KEY>/` in the current folder).
 
 Ticket: $ARGUMENTS
 
@@ -24,7 +25,8 @@ reintroduce something I rejected, and **never re-ask anything already answered i
 
 ## Start of the run: one message from you, then work
 
-1. **Dependency check (the skill's Step 00), silently first.**
+1. **Dependency check (the skill's Step 00, including its start-of-run check: project situation
+   A–E, `preflight` for folder / environment / logins, one test login per role), silently first.**
    - **Ticket:** use whichever Jira tool exists (Atlassian Rovo, Atlassian, or a local Atlassian
      server). Fetch the description, **all comments**, linked tickets and the attachment list.
    - **Attachments:** download them with `jira-attachments.py` if Jira credentials are set.
@@ -47,10 +49,11 @@ authentication counts as missing.
 
 ## Non-negotiables for this run
 
-- **Load the project's `CLAUDE.md` / `CLAUDE.local.md` and `.claude/qa/known-findings.md` before
-  analysis.** Check every candidate finding against the ledger; a match is reported as **Known** and
+- **Load the project's `CLAUDE.md` / `CLAUDE.local.md` and its known-findings ledger (the profile's
+  `ledger` path) before analysis.** Check every candidate finding against the ledger; a match is reported as **Known** and
   not re-raised.
-- **Keep `qa/` out of git:** write `qa/.gitignore` and `.playwright-mcp/.gitignore`, each containing
+- **Keep `qa/` out of git** (in-repo case folders only; never write anything in a read-only repo):
+  write `qa/.gitignore` (and `.playwright-mcp/.gitignore` if that folder appears), each containing
   `*`. Skip this only if the project layer says QA files are committed.
 - **`03-pass1.md` is write-once.** Record predictions before any live execution, and never edit them
   afterwards. Use `file:line` when you have the code; with no code, base them on the requirement and

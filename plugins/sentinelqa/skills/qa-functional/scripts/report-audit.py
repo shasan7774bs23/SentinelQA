@@ -163,7 +163,7 @@ def main():
                         f"it to an 'Unverified predictions' section with no severity.")
 
     # ---- R9c: evidence index, cross-checked against the folder BOTH ways ------------
-    if not re.search(r"#+ *\d*\.? *Evidence index", t, re.I):
+    if not re.search(r"^#+ *[\w.]*\.? *Evidence index", t, re.I | re.M):   # "9b. Evidence index" too
         fail("R9c", "no Evidence index section")
     listed = set(re.findall(r"`([\w][\w\-.]*\.(?:png|jpg|jpeg|gif|webp|pdf|har|json|txt|log))`", t))
     # Any backticked file name counts as a reference (an execution-log.md, a .csv, a .sql...).

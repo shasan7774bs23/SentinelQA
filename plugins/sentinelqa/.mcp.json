@@ -2,7 +2,13 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--allow-unrestricted-file-access",
+        "--output-dir",
+        "${CLAUDE_PLUGIN_DATA}/playwright-output"
+      ]
     }
   }
 }

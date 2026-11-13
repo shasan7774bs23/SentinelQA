@@ -5,6 +5,8 @@ run: reading SentinelQA's own templates, saving each case-file file, running eac
 browser action. These rules allow only what a QA run needs. Everything else still asks: every Jira
 write, `git commit` / `git push`, the browser's `browser_run_code_unsafe`, and any other command.
 
+**How they get there:** `/qa-setup` offers them once and runs `scripts/sentinelqa-setup.py add-rules`, which also adds access to any external case folder and `curl` for each non-production test host.
+
 **Where they go:** the `permissions.allow` list of the user settings file `~/.claude/settings.json`,
 so they apply to every project. Merge them in and keep every existing entry. Never remove or change
 anything else in that file. Only add them after the user says yes. Users of Claude Code's *auto*
@@ -23,6 +25,9 @@ every project.
   "Bash(python *sentinelqa*)", "Bash(py -3 *sentinelqa*)", "Bash(python3 *sentinelqa*)",
   "Bash(git status*)", "Bash(git log *)", "Bash(git diff *)", "Bash(git show *)",
   "Bash(git branch *)", "Bash(git ls-files*)", "Bash(git check-ignore *)", "Bash(git rev-parse *)",
+  "PowerShell(python *sentinelqa*)", "PowerShell(py -3 *sentinelqa*)", "PowerShell(python3 *sentinelqa*)",
+  "PowerShell(git status*)", "PowerShell(git log *)", "PowerShell(git diff *)", "PowerShell(git show *)",
+  "PowerShell(git branch *)", "PowerShell(git ls-files*)", "PowerShell(git check-ignore *)", "PowerShell(git rev-parse *)",
   "mcp__claude_ai_Atlassian_Rovo__getJiraIssue", "mcp__claude_ai_Atlassian_Rovo__searchJiraIssuesUsingJql",
   "mcp__claude_ai_Atlassian_Rovo__getConfluencePage", "mcp__claude_ai_Atlassian_Rovo__getAccessibleAtlassianResources",
   "mcp__claude_ai_Atlassian_Rovo__searchConfluenceUsingCql",
@@ -54,4 +59,4 @@ every project.
 ```
 
 HTTP checks against a test environment (`curl`) still ask the first time in each session. A rule
-like `"Bash(curl *qa.example.com*)"` for your own test host removes that. Never add a production host.
+like `"Bash(curl *qa.example.com*)"` (and the same with `PowerShell(`) for your own test host removes that. Never add a production host.

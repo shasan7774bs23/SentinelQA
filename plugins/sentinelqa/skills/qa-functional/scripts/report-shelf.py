@@ -68,7 +68,7 @@ DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_")
 DATE_IN_NAME_RE = re.compile(r"20\d{2}-\d{2}-\d{2}")
 
 # --- per-user configuration -------------------------------------------------
-CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".sentinelqa", "projects.json")
+CONFIG_PATH = os.path.join(os.environ.get("SENTINELQA_HOME") or os.path.join(os.path.expanduser("~"), ".sentinelqa"), "projects.json")
 
 
 def _load_config():

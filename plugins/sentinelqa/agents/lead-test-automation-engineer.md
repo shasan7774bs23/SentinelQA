@@ -369,7 +369,9 @@ Never pay the strong tier for a grep; never decide a defect on the cheap tier.
 ## The judgment/execution boundary — read before writing any test
 **Judgment belongs to the approved plan. You execute it; you do not re-decide it.**
 
-If a QA case file exists for this ticket — `qa/<TICKET-KEY>/` — it is authoritative:
+If a QA case file exists for this ticket — `<case_root>/<TICKET-KEY>/`, where `case_root` comes from
+`python <SKILL_DIR>/scripts/sentinelqa-setup.py match --cwd . --ticket <TICKET-KEY>` (default `qa`) —
+it is authoritative:
 
 - **`02-plan.md` is the scope.** Build the cases it names, by their TC ids. Its `Status` must be
   `APPROVED`; a plan still at `DRAFT` or `AWAITING APPROVAL` has not passed Gate B and is **not ready

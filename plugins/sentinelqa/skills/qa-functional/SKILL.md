@@ -185,6 +185,24 @@ without execution evidence · report ambiguous behaviour as a confirmed defect �
 reproduction steps · hide requirement gaps · generate padding or duplicate test cases · test only
 happy paths · assume a requirement is complete · treat severity and priority as the same thing.
 
+### Standing rules (the team lead's machine-wide rules, packed with SentinelQA)
+- **Close every test browser you open** (`browser_close`) when the run, or a break in it, ends. Never
+  close the person's own browser windows.
+- **Never test production. Never print, store or commit a password, token or key**: not in the case
+  file, the report, a screenshot, a ticket or memory.
+- **Several agents cost money: check before fanning out.** Before starting more than one subagent
+  (or a workflow), give one line: what would run, on which model, roughly how big, and the cheaper
+  alternative. Wait for a yes. Use the cheapest model that does the job well: `haiku` for mechanical
+  sweeps, `sonnet` for normal work, `opus` only for verdicts, root causes and final synthesis. Never
+  downgrade a task when that would hurt the result; say so instead. A single agent doing one scoped
+  lookup needs no check.
+- **Commits carry the person's own name only.** For any commit SentinelQA makes (test automation
+  code), do not add an AI `Co-Authored-By` trailer or a "Generated with" footer unless the person asks.
+- **Never write anything into a repository the profile marks read-only**, and never commit or push
+  QA case files.
+- Anything handed to the person to decide uses the decision-brief format
+  (`references/decision-briefs.md`).
+
 ---
 
 ## Two invocation modes
@@ -205,29 +223,93 @@ continue with whatever exists, and record every gap in `00-intake.yml` → `depe
 again about an item that has been answered for this ticket. Read the answers back from
 `00-intake.yml` when you resume.
 
-**On a machine where row 9 (permission rules) is not yet settled, ask that ONE question first,
-before reading templates, probing the environment or writing any file.** Without the rules every one
-of those steps is a separate approval prompt; with them, none are. Send it as a short message of its
-own: *"First run of SentinelQA on this machine. Add its permission rules to your user settings, so QA
-runs stop asking before each step in every project? (yes / no)"* Act on the answer (row 9), then start
-the dependency check below. Never ask it again once `~/.sentinelqa/state.json` records the answer.
+**First tool call of every run: read this machine's SentinelQA profile.**
+`python ${CLAUDE_SKILL_DIR}/scripts/sentinelqa-setup.py match --cwd . --ticket <TICKET-KEY>`
+(If `python` is not found, use `python3` (macOS/Linux) or `py -3` (Windows), and keep using it for
+every script in this run.)
+It prints JSON:
+- `"status": "match"` → the saved project. **Use it**: its Jira site, source-code answer, environments
+  (never test one marked `production`), how to confirm the build, accounts by role, gotchas, and its
+  **case root** (`case_root`). Do not ask again for anything it records.
+- `"status": "no_profile"` → this machine was never set up. Send ONE short message first, before
+  reading templates, probing anything or writing any file: *"SentinelQA isn't set up on this machine
+  yet. Run `/qa-setup` now? It takes about 5 minutes, once, and covers all your projects and the
+  permission rules. Or I can continue and ask only what this ticket needs."* If they continue, run
+  row 9 as part of the batched question.
+- `"status": "no_match"` → set up, but not for this project. Ask only this project's facts in the
+  batched message, and at the end of the run offer to save them with `/qa-setup`.
 
-**Check silently first. Ask only about what you could not find.** If the project's memory, its
-`CLAUDE.md` / `CLAUDE.local.md`, or an earlier case file under `qa/` answers an item, use that
-answer. Nothing has to be set up per project: the first ticket in a project asks, and the end-of-run
-memory proposal keeps the answers for the next ticket.
+### The start-of-run check: ask everything once, then test without interruption
+
+The person must be asked **once**, at the start, and the test must then **run through** to the next
+gate without stopping for a missing folder, URL or login. So, before Step 0b, in this order:
+
+**1 — Which project, and is this session open in it?** `match` also returns a `situation`:
+
+| `situation` | Meaning | What you do |
+|---|---|---|
+| **A** | Open inside the project's folder (or the profile records that QA has no source code) | Continue |
+| **B** | The ticket's project lives in another folder on this machine (`open_in`) | **Stop once**, before anything else: *"`<KEY>` belongs to **`<project>`**, whose code is at `<open_in>`. Open Claude Code there (`cd "<open_in>"`, then `claude`) and run `/qa-functional <KEY>` again. Or reply **continue here** to test without the source code (requirement-based Pass 1, then live testing)."* On *continue here*, record `codebase: unavailable here — person chose to continue, <date>` |
+| **C** | The saved folder is gone (moved, renamed) or none is saved | Put in the one message: *"Where is `<project>` on this machine now? (path / not on this machine)"*. Save the answer (`import`), then treat it as A or B |
+| **D** | New project (prefix and folder unknown) | Put the project's block in the one message: local folder, Jira site, test environments (production marked), test accounts by role and **where each login is kept** |
+| **E** | Machine never set up | Offer `/qa-setup` as above |
+
+**2 — Jira (silent).** Use whichever `getJiraIssue` tool exists (row 1 below). Read the description,
+**every** comment, linked tickets and the attachment list. Confirm the ticket's project is visible on
+the saved site (the ticket loads, or `searchJiraIssuesUsingJql` with `project = <PREFIX>` returns).
+If not visible, say which site was tried: it is a wrong site or no access, never a reason to log in.
+
+**3 — What this ticket needs (silent).** From the ticket, decide the **environment** (default: the
+profile's first non-production one) and the **roles** the scenarios need.
+
+**4 — Check them now, not mid-run.** Run
+`python ${CLAUDE_SKILL_DIR}/scripts/sentinelqa-setup.py preflight --cwd . --ticket <KEY> --env <ENV> --roles <role1,role2>`.
+It checks the folder, sends one request to the test environment (**never** to production), and checks
+that each role's login can be found: `env:USER_VAR,PASS_VAR` (variable set) or
+`file:<path>#<key>` (the file has that entry). It never prints a credential. Its `ask` list is
+everything still missing.
+Then, with the browser, **log in once per role** the ticket needs, to prove the login works before
+the long run starts. Read the credential only at that moment, type it into the login form, and
+never repeat it in a message, file, report or screenshot. **One failed login for a role: stop
+trying that role** (no retries, no cycling other accounts: lockouts), and add it to the message.
+
+**5 — ONE message** with every remaining item: the `ask` list, failed logins, the ticket text if no
+Jira connector worked, attachments, permission rules (row 9), and the run-context questions
+(Step 0c). Include, for new facts: *"I'll save these to your SentinelQA profile so they are not asked
+again"*. After the reply, save new facts with `import`, re-run `preflight` for anything that was
+fixed, and say: **"All set. Running now; I'll stop only at the sign-off gates."**
+
+**During the run, do not stop for a missing dependency.** If something unforeseen appears (a role
+nobody anticipated, an environment that goes down), mark the affected cases **Not Executed** with the
+blocker named, keep testing everything else, and list them at the next gate. The gates (A–E) are the
+only planned stops.
+
+**Credentials, always:** the profile holds only *where* a login is kept, never the login itself. A
+password typed into the chat is used for this run only and never written anywhere. Never test
+production. Never run or suggest any login command for Claude Code, Jira or Git: a connector that
+needs authentication counts as missing, and the run continues.
+
+**The case root.** Everywhere this method says `qa/<TICKET-KEY>/`, use `<case_root>/<TICKET-KEY>/`
+from the profile (default `qa`). A project marked `read-only` keeps its case root **outside** the repo:
+never write any file inside that repo, including `qa/.gitignore`. Pass the case folder's path to every
+script exactly as for `qa/<TICKET-KEY>`.
+
+**Check silently first. Ask only about what you could not find.** If the profile, the project's
+memory, its `CLAUDE.md` / `CLAUDE.local.md`, or an earlier case file answers an item, use that answer.
+At the end of the run, propose saving anything new (a new environment, an account role, a build
+check) with `/qa-setup`, so the next ticket does not ask.
 
 | # | Dependency | How to detect it | If missing, and the user says no |
 |---|---|---|---|
 | 1 | **Ticket access** | Any tool whose name ends in `getJiraIssue` (`mcp__claude_ai_Atlassian_Rovo__…`, `mcp__claude_ai_Atlassian__…`, `mcp__atlassian__…`, or another Jira connector). **Whichever exists is the one to use.** The site comes from the project layer; otherwise call that connector's `getAccessibleAtlassianResources` | Ask the user to paste the ticket: description, **every** comment, and linked tickets. This is the only hard requirement: with no ticket text at all there is nothing to test against |
-| 2 | **Ticket attachments** (DB scripts, specs, screenshots) | List them from the ticket (`fields: ["attachment"]`). Download with `python ${CLAUDE_SKILL_DIR}/scripts/jira-attachments.py <KEY> --site <site> --out qa/<KEY>/attachments` **if** the user has set `JIRA_EMAIL` + `JIRA_API_TOKEN`. Exit code 3 means no credentials. That is not an error, so do not ask the user to log in or create a token | Ask once: *"Can you drop these files into `qa/<KEY>/attachments/`?"* If not: continue, list every unread attachment in the report as **Not reviewed**, and label any claim that depends on one **Unverified** |
+| 2 | **Ticket attachments** (DB scripts, specs, screenshots) | List them from the ticket (`fields: ["attachment"]`). Download with `python ${CLAUDE_SKILL_DIR}/scripts/jira-attachments.py <KEY> --site <site> --out <case folder>/attachments` **if** the user has set `JIRA_EMAIL` + `JIRA_API_TOKEN`. Exit code 3 means no credentials. That is not an error, so do not ask the user to log in or create a token | Ask once: *"Can you drop these files into `<case folder>/attachments/`?"* (give the full path) If not: continue, list every unread attachment in the report as **Not reviewed**, and label any claim that depends on one **Unverified** |
 | 3 | **The project's source code** | The working folder is a repo holding the application code for this ticket (the ticket key in `git log`, or the feature's names in the source) | Ask: *"I can't find this project's source code here. Is it available to QA? (path / no)"*. On **"no"**, record `codebase: unavailable — confirmed by <name>, <date>` and continue. Pass 1 becomes **requirement-based predictions** (see *Two-pass verification*). Then Pass 2 tests everything reachable live |
 | 4 | **Test environment** (URL) and a way to confirm the deployed build | Project layer, or the ticket | Without an environment there is no live testing: deliver the analysis, Pass 1 and the complete test design, and mark every case Not Executed with the blocker named |
-| 5 | **Test accounts** by role | Project layer: role → where the credential lives | Test what the accounts you have can reach. Every other role-dependent case is Not Executed with the missing role named |
+| 5 | **Test accounts** by role | Project layer: role → where the credential lives (`env:USER_VAR,PASS_VAR` or `file:<path>#<key>`), checked by `preflight` plus one test login per role | Test what the accounts you have can reach. Every other role-dependent case is Not Executed with the missing role named |
 | 6 | **Browser tool** | SentinelQA installs its own Playwright browser server (`mcp__plugin_sentinelqa_playwright__browser_*`). Any other `browser_navigate` tool (e.g. `mcp__playwright__…`) works too. It needs Node.js: if the server failed to start, `node --version` shows whether Node is missing | Fall back to authenticated HTTP (`curl`) for everything non-visual. Visual cases are Not Executed, with the blocker "no browser tool in this session" (and "install Node.js, then restart Claude Code" when Node is missing) |
 | 7 | **Python** (audit and report scripts) | `python --version`, then `py -3 --version`, then `python3 --version`. Use the first that works, and use that same command for every script call | Run the audit checks by hand from the script's rules, and state in the report that the scripted audits could not run |
-| 8 | **Project knowledge** (environments, accounts, build check) | Project memory, `CLAUDE.md` / `CLAUDE.local.md`, earlier `qa/*/00-intake.yml` | Ask only what this ticket needs, in the same batched message. At the end of the run, propose saving it to memory, so the next ticket in this project doesn't ask |
-| 9 | **Permission rules** (once per machine) | Read `~/.sentinelqa/state.json`. If it records `"permission_rules": "added"` or `"declined"`, this row is settled: skip it. Also skip it when the session runs in *auto* permission mode | Ask once, in the same batched message: *"Add SentinelQA's permission rules to your user settings, so QA runs stop asking before each step, in every project? (yes / no)"* On **yes**: merge the list from `references/permission-rules.md` into `~/.claude/settings.json` (keep every existing entry), then write `{"permission_rules": "added"}` to `~/.sentinelqa/state.json`. On **no**: write `{"permission_rules": "declined"}` there. Either way the question is never asked again on this machine |
+| 8 | **Project knowledge** (environments, accounts, build check, source code, case root) | The profile (`sentinelqa-setup.py match`), then project memory, `CLAUDE.md` / `CLAUDE.local.md`, earlier case files | Ask only what this ticket needs, in the same batched message. At the end of the run, offer to save it with `/qa-setup`, so the next ticket in this project doesn't ask |
+| 9 | **Permission rules** (once per machine; normally settled by `/qa-setup`) | `python ${CLAUDE_SKILL_DIR}/scripts/sentinelqa-setup.py state show`. If it records `"permission_rules": "added"` or `"declined"`, this row is settled: skip it. Also skip it when the session runs in *auto* permission mode | Ask once, in the same batched message: *"Add SentinelQA's permission rules to your user settings, so QA runs stop asking before each step, in every project? (yes / no)"* On **yes**: run `sentinelqa-setup.py add-rules` (it merges them, keeps every existing entry and a backup, and records the answer). On **no**: run `sentinelqa-setup.py state rules declined`. Either way the question is never asked again on this machine |
 
 **If everything is available**, say so in one line and run the whole method.
 
@@ -244,11 +326,12 @@ and continue.
 - **Never call a Jira tool with a guessed or placeholder site.** If the site is unknown and the
   lookup fails, list the site under the missing items.
 
-**Keep QA files out of the project's git history.** When you create `qa/`, write a file
-`qa/.gitignore` containing the single line `*`, and the same file at `.playwright-mcp/.gitignore` (the
-browser tool writes its scratch files in `.playwright-mcp/`). A folder whose own `.gitignore` says `*`
-is invisible to git, including to `git add -A`. This needs no edit inside `.git/`, so the user gets no
-permission prompt. Skip this only if the project layer says QA files are committed in this repo.
+**Keep QA files out of the project's git history.** When you create `qa/` inside a repo, write a file
+`qa/.gitignore` containing the single line `*`. A folder whose own `.gitignore` says `*` is invisible to
+git, including to `git add -A`, and needs no edit inside `.git/`, so the user gets no permission
+prompt. If a `.playwright-mcp/` folder appears in the project (it comes from a different browser server
+than SentinelQA's), give it the same one-line `.gitignore`. Skip all of this when the project's QA files
+are committed, and **never write anything inside a read-only repo**.
 
 **An answer already recorded is not asked again.** If the project layer records that the source
 code is not available to QA, state it in one line ("source code: not available to QA, per the project
@@ -257,15 +340,18 @@ layer") and continue. Ask only if something contradicts it.
 **Keep tool calls simple, so the project's permission rules match them and the user is not
 prompted:**
 - Read files with the Read, Glob and Grep tools, not `cat`, `ls` or `find`.
-- One command per Bash call. Never prefix a command with `cd`, and never use `git -C <path>`; you are
-  already in the project.
+- One command per Bash (or PowerShell) call: no `;`, `&&`, pipes or variable assignments in front.
+  Never prefix a command with `cd`, and never use `git -C <path>`; you are already in the project.
 - No inline `python -c` one-off scripts. Use SentinelQA's own scripts.
 - Copy a file with Read then Write, not `cp`. Read page text with `browser_snapshot`, not
   `browser_evaluate`.
 - A revision is the `rev N` in the artifact's header. Never hash files to identify one.
 - **Save every screenshot straight into the case file:** `browser_take_screenshot` with
-  `filename` set to `qa/<TICKET-KEY>/04-evidence/<CASE-ID>.png`. Show it inside that case as
-  `![<CASE-ID>](04-evidence/<CASE-ID>.png)`. Never move or copy screenshots afterwards.
+  `filename` set to `<case folder>/04-evidence/<CASE-ID>.png`: the relative `qa/<TICKET-KEY>/...`
+  path for an in-repo case root, the full absolute path when the case root is outside the project.
+  Show it inside that case as `![<CASE-ID>](04-evidence/<CASE-ID>.png)`. Never move or copy
+  screenshots afterwards. (SentinelQA's browser keeps its own scratch files in the plugin's data
+  folder, never in the project.)
 - **Never use the browser's `browser_run_code_unsafe`.** Drive the page with normal browser actions
   (navigate, click, type, snapshot, screenshot), and save network evidence with
   `browser_network_requests` / `browser_network_request`.
@@ -326,7 +412,9 @@ Gather project context before analysis. Never assume it:
 
 1. The project's `CLAUDE.md` (conventions, domain, hard rules)
 2. Per-project memory (environments, test accounts, known gotchas, provisioning blockers)
-3. `.claude/qa/known-findings.md` — the known-findings ledger. If absent, note it and offer to start one.
+3. The known-findings ledger: the profile's `ledger` path; otherwise `.claude/qa/known-findings.md` in the
+   repo, or, for a read-only project, `known-findings.md` in the project's case root (next to its case
+   files, never inside the repo). If absent, note it and offer to start one there.
 4. Existing test plans, test suites, or automation in the repo
 
 Missing context is a question, not a blank to fill in.
@@ -584,7 +672,7 @@ findings into the user-facing bug list. Whether a finding gets filed is the user
 
 ## Ledger check — mandatory before reporting
 
-Check every candidate finding against `.claude/qa/known-findings.md` and project memory.
+Check every candidate finding against the project's known-findings ledger (Step 0b, item 3) and project memory.
 A match → report it as **Known**, cite the ledger entry, and **do not re-raise it**.
 After the run, propose new ledger entries for anything newly ruled out.
 
@@ -725,7 +813,7 @@ hard rules.
   Never write Pass or Fail without execution evidence.
 - **The test plan presented at Gate B** → written from `templates/qa-plan.md` to
   the folder and naming the project already uses (for example `test-plan/<TICKET-KEY>-test-plan.md`).
-  If there is no convention, use `qa/<TICKET-KEY>/02-plan.md`. Saved in the project, not left in the chat
+  If there is no convention, or the project is read-only, use `<case folder>/02-plan.md`. Saved in the project, not left in the chat
   session — it is what the human approves, what gets posted to the ticket, and what the automation
   agent builds against.
 - **Bugs** → `templates/bug-report.md`. Title formula: `[Module] – [Condition/Action] – [Incorrect behaviour]`
@@ -753,7 +841,7 @@ against the next run. Writing it is part of finishing the task, not an extra the
 | **Formats** | **Both**: `.md` (greppable, diffable) and `.html` (the one people actually read and share) |
 | **Naming** | `<TICKET-KEY>-QA-Report.md` / `.html` — e.g. `ABC-581-QA-Report.html` |
 | **Re-test naming** | `<TICKET-KEY>-ReTest-QA-Report-<YYYY-MM-DD>.md` / `.html` — never overwrite the original run |
-| **Location** | The project's existing report location — **match what the repo already does.** If there is no convention, keep it in the case file `qa/<TICKET-KEY>/` (git-excluded, see Step 00). |
+| **Location** | The project's existing report location — **match what the repo already does.** If there is no convention, keep it in the case folder (see Step 00). **A read-only project's report always goes in its case folder, never in the repo.** |
 | **Publishing** | Then put it on the per-project shelf — **never loose in Downloads**: `python ${CLAUDE_SKILL_DIR}/scripts/report-shelf.py publish <file> [<file>...]`. It resolves the project from the ticket key (`ABC-123` → `ABC`, or the name mapped in `~/.sentinelqa/projects.json`), files it as `~/Downloads/QA-Reports/<PROJECT>/YYYY-MM-DD_<name>` so name-sort is date-sort, and rebuilds the newest-first `index.html`. Add `--project <NAME>` when the filename has no ticket key; a report in `_Unsorted` is a mistake to fix. Quote the path it prints. |
 
 **Report structure** — the shape these reports already use:
